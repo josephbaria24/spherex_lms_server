@@ -39,6 +39,22 @@ export const env = {
     pullZone: process.env.BUNNY_PULL_ZONE ?? "",
     securityKey: process.env.BUNNY_SECURITY_KEY ?? "",
   },
+
+  smtp: {
+    host: process.env.SMTP_HOST ?? "",
+    port: parseInt(optional(process.env.SMTP_PORT, "587"), 10),
+    user: process.env.SMTP_USER ?? "",
+    pass: process.env.SMTP_PASS ?? "",
+    fromName: optional(process.env.SMTP_FROM_NAME, "SphereX LMS"),
+    fromEmail: process.env.SMTP_FROM_EMAIL ?? "",
+  },
+
+  /** Shown in payment-request emails (manual bank transfer instructions). */
+  paymentInstructions: optional(
+    process.env.PAYMENT_INSTRUCTIONS,
+    "Please transfer the amount via bank deposit or GCash, then upload your receipt using the link in this email.",
+  ),
+  adminNotifyEmail: process.env.ADMIN_NOTIFY_EMAIL ?? "",
 } as const;
 
 export const isProd = env.nodeEnv === "production";

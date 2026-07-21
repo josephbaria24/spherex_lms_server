@@ -42,7 +42,7 @@ export async function assertCanEnrollInCourse(
   userId: string,
   course: CourseEnrollmentPolicy,
   platformRole: string | undefined,
-  options: { enroll_code?: string; payment_confirmed?: boolean },
+  options: { enroll_code?: string },
 ): Promise<void> {
   if (isAdmin(platformRole)) return;
 
@@ -54,9 +54,8 @@ export async function assertCanEnrollInCourse(
 
   const isPaid = course.price_cents > 0;
   if (isPaid) {
-    if (options.payment_confirmed) return;
     throw HttpError.paymentRequired(
-      "This course requires payment or a valid enrollment code",
+      "This course requires payment request approval or a valid enrollment code",
     );
   }
 

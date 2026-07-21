@@ -10,12 +10,16 @@ import {
   assertCanEnrollInCourse,
   getCourseEnrollmentPolicy,
 } from "../../lib/course-enrollment.js";
+import {
+  createNotification,
+  listCourseInstructorIds,
+  notifyUsers,
+} from "../../lib/notifications.js";
 
 const enrollSchema = z.object({
   course_id: z.string().uuid(),
   user_id: z.string().uuid().optional(),
   enroll_code: z.string().min(4).max(32).optional(),
-  payment_confirmed: z.boolean().optional(),
 });
 
 const updateEnrollmentSchema = z.object({
@@ -83,7 +87,7 @@ router.post(
   requireAuth,
   validate(enrollSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    const { course_id, user_id, enroll_code, payment_confirmed } = enrollSchema.parse(req.body);
+    const { course_id, user_id, enroll_code } = enrollSchema.parse(req.body);
     const targetUserId = user_id ?? req.user!.sub;
 
     if (targetUserId !== req.user!.sub && req.user!.role !== "admin") {
@@ -97,7 +101,6 @@ router.post(
       if (!isAdmin(req.user!.role)) {
         await assertCanEnrollInCourse(targetUserId, coursePolicy, req.user!.role, {
           enroll_code,
-          payment_confirmed,
         });
       }
 
@@ -114,17 +117,53 @@ router.post(
           "SELECT * FROM enrollments WHERE user_id = $1 AND course_id = $2",
           [targetUserId, course_id],
         );
-        return existing.rows[0];
+        return { enrollment: existing.rows[0], created: false as const };
       }
 
       await client.query(
         `UPDATE courses SET enrolled_count = enrolled_count + 1 WHERE id = $1`,
         [course_id],
       );
-      return result.rows[0];
+      return { enrollment: result.rows[0], created: true as const };
     });
 
-    res.status(201).json({ enrollment });
+    if (enrollment.created) {
+      const course = await query<{ title: string }>(
+        `SELECT title FROM courses WHERE id = $1`,
+        [course_id],
+      );
+      const title = course.rows[0]?.title ?? "a course";
+
+      await createNotification({
+        userId: targetUserId,
+        type: "enrollment.created",
+        title: "You're enrolled",
+        body: `You are now enrolled in "${title}".`,
+        link: "/courses",
+        referenceId: enrollment.enrollment.id,
+      });
+
+      const instructorIds = await listCourseInstructorIds(course_id);
+      const student = await query<{ full_name: string | null; email: string }>(
+        `SELECT full_name, email FROM users WHERE id = $1`,
+        [targetUserId],
+      );
+      const studentLabel =
+        student.rows[0]?.full_name?.trim() || student.rows[0]?.email || "A learner";
+
+      await notifyUsers(
+        instructorIds.filter((id) => id !== targetUserId),
+        {
+          type: "enrollment.created",
+          title: "New student enrolled",
+          body: `${studentLabel} enrolled in "${title}".`,
+          link: "/teacher",
+          referenceId: enrollment.enrollment.id,
+        },
+      );
+    }
+
+    res.status(201).json({ enrollment: enrollment.enrollment });
   }),
 );
 

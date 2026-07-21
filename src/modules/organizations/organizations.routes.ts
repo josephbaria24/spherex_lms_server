@@ -10,6 +10,11 @@ import type { OrgMemberRole } from "../../lib/org-types.js";
 import { assertOrgMemberCapacity } from "../../lib/org-limits.js";
 import type { OrganizationRow } from "../../lib/org-types.js";
 import { validate } from "../../middleware/validate.js";
+import {
+  createNotification,
+  listOrgAdminIds,
+  notifyUsers,
+} from "../../lib/notifications.js";
 
 const router = Router();
 
@@ -138,7 +143,8 @@ router.post(
       "SELECT id FROM organization_members WHERE organization_id = $1 AND user_id = $2",
       [org.id, req.user!.sub],
     );
-    if (!existingMember.rows[0]) {
+    const wasNew = !existingMember.rows[0];
+    if (wasNew) {
       await assertOrgMemberCapacity(org.id);
     }
 
@@ -158,6 +164,35 @@ router.post(
       await query(
         `UPDATE users SET role = 'teacher' WHERE id = $1 AND role IN ('student', 'user')`,
         [req.user!.sub],
+      );
+    }
+
+    if (wasNew) {
+      const joiner = await query<{ full_name: string | null; email: string }>(
+        `SELECT full_name, email FROM users WHERE id = $1`,
+        [req.user!.sub],
+      );
+      const label =
+        joiner.rows[0]?.full_name?.trim() || joiner.rows[0]?.email || "A teacher";
+
+      await createNotification({
+        userId: req.user!.sub,
+        type: "organization.member_joined",
+        title: "Joined organization",
+        body: `You joined ${org.name} as a teacher.`,
+        link: "/teacher",
+        referenceId: memberResult.rows[0]!.id,
+      });
+
+      await notifyUsers(
+        (await listOrgAdminIds(org.id)).filter((id) => id !== req.user!.sub),
+        {
+          type: "organization.member_joined",
+          title: "New teacher joined",
+          body: `${label} joined ${org.name}.`,
+          link: `/org/${org.slug}/members`,
+          referenceId: memberResult.rows[0]!.id,
+        },
       );
     }
 
@@ -201,7 +236,8 @@ router.post(
       "SELECT id FROM organization_members WHERE organization_id = $1 AND user_id = $2",
       [org.id, req.user!.sub],
     );
-    if (!existingMember.rows[0]) {
+    const wasNew = !existingMember.rows[0];
+    if (wasNew) {
       await assertOrgMemberCapacity(org.id);
     }
 
@@ -216,6 +252,35 @@ router.post(
        RETURNING id, role, organization_id`,
       [org.id, req.user!.sub, ORG_MEMBER_ROLES.STUDENT],
     );
+
+    if (wasNew) {
+      const joiner = await query<{ full_name: string | null; email: string }>(
+        `SELECT full_name, email FROM users WHERE id = $1`,
+        [req.user!.sub],
+      );
+      const label =
+        joiner.rows[0]?.full_name?.trim() || joiner.rows[0]?.email || "A student";
+
+      await createNotification({
+        userId: req.user!.sub,
+        type: "organization.member_joined",
+        title: "Joined organization",
+        body: `You joined ${org.name}.`,
+        link: "/dashboard",
+        referenceId: memberResult.rows[0]!.id,
+      });
+
+      await notifyUsers(
+        (await listOrgAdminIds(org.id)).filter((id) => id !== req.user!.sub),
+        {
+          type: "organization.member_joined",
+          title: "New student joined",
+          body: `${label} joined ${org.name}.`,
+          link: `/org/${org.slug}/members`,
+          referenceId: memberResult.rows[0]!.id,
+        },
+      );
+    }
 
     res.status(201).json({
       membership: memberResult.rows[0],

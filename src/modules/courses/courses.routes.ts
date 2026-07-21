@@ -132,6 +132,12 @@ router.get(
 
     if (!isAdmin(req.user!.role)) {
       await assertOrgAccessForCourse(req.user!.sub, id, req.user!.role);
+      // Do not leak enrollment codes to learners
+      const { enroll_code: _hidden, ...safe } = course as typeof course & {
+        enroll_code?: string | null;
+      };
+      res.json({ course: safe });
+      return;
     }
 
     res.json({ course });

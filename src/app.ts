@@ -8,6 +8,8 @@ import cookieParser from "cookie-parser";
 import { env, isProd } from "./config/env.js";
 import { attachUser } from "./middleware/auth.js";
 import { errorHandler, notFound } from "./middleware/error.js";
+import { protectUploads } from "./middleware/protect-uploads.js";
+import { authRateLimiter } from "./middleware/rateLimit.js";
 
 import authRoutes from "./modules/auth/auth.routes.js";
 import userRoutes from "./modules/users/users.routes.js";
@@ -23,10 +25,13 @@ import orgAdminRoutes from "./modules/org-admin/org-admin.routes.js";
 import adminOrganizationsRoutes from "./modules/admin/admin-organizations.routes.js";
 import adminDashboardRoutes from "./modules/admin/admin-dashboard.routes.js";
 import learnRoutes from "./modules/learn/learn.routes.js";
+import paymentRequestRoutes from "./modules/payment-requests/payment-requests.routes.js";
+import notificationRoutes from "./modules/notifications/notifications.routes.js";
 import { initUploadsDirectory, getUploadsRoot } from "./lib/org-uploads.js";
 import { initLessonUploadsDirectory } from "./lib/lesson-uploads.js";
 import { initScormUploadsDirectory } from "./lib/scorm-uploads.js";
 import { initCourseUploadsDirectory } from "./lib/course-uploads.js";
+import { initReceiptUploadsDirectory } from "./lib/payment-requests.js";
 
 export function createApp(): Express {
   const app = express();
@@ -35,6 +40,7 @@ export function createApp(): Express {
   initLessonUploadsDirectory();
   initScormUploadsDirectory();
   initCourseUploadsDirectory();
+  initReceiptUploadsDirectory();
 
   app.disable("x-powered-by");
   app.set("trust proxy", 1);
@@ -56,6 +62,7 @@ export function createApp(): Express {
 
   app.use(
     "/api/uploads",
+    protectUploads,
     express.static(getUploadsRoot(), {
       index: false,
       fallthrough: true,
@@ -66,7 +73,7 @@ export function createApp(): Express {
     res.json({ ok: true, env: env.nodeEnv });
   });
 
-  app.use("/api/auth", authRoutes);
+  app.use("/api/auth", authRateLimiter, authRoutes);
   app.use("/api/users", userRoutes);
   app.use("/api/courses", courseRoutes);
   app.use("/api/enrollments", enrollmentRoutes);
@@ -80,6 +87,8 @@ export function createApp(): Express {
   app.use("/api/admin/organizations", adminOrganizationsRoutes);
   app.use("/api/learn", learnRoutes);
   app.use("/api/bunny", bunnyRoutes);
+  app.use("/api/payment-requests", paymentRequestRoutes);
+  app.use("/api/notifications", notificationRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

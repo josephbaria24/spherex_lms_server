@@ -5,6 +5,7 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/httpError.js";
 import { requireAuth, requireAdmin } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
+import { createNotification } from "../../lib/notifications.js";
 
 const createSchema = z.object({
   user_id: z.string().uuid(),
@@ -54,6 +55,25 @@ router.post(
        VALUES ($1, $2, $3) RETURNING *`,
       [body.user_id, body.course_id ?? null, body.certificate_url ?? null],
     );
+
+    let courseTitle = "a course";
+    if (body.course_id) {
+      const course = await query<{ title: string }>(
+        `SELECT title FROM courses WHERE id = $1`,
+        [body.course_id],
+      );
+      if (course.rows[0]?.title) courseTitle = course.rows[0].title;
+    }
+
+    await createNotification({
+      userId: body.user_id,
+      type: "certificate.issued",
+      title: "Certificate issued",
+      body: `You earned a certificate for "${courseTitle}".`,
+      link: "/achievements",
+      referenceId: result.rows[0]!.id,
+    });
+
     res.status(201).json({ certificate: result.rows[0] });
   }),
 );

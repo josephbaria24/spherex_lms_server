@@ -406,3 +406,79 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_training BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_course_updates BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false;
+
+-- ---------------------------------------------------------------------------
+-- password_reset_tokens
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS password_reset_tokens_user_idx ON password_reset_tokens (user_id);
+CREATE INDEX IF NOT EXISTS password_reset_tokens_hash_idx ON password_reset_tokens (token_hash);
+
+-- ---------------------------------------------------------------------------
+-- payment_requests (manual bank transfer + receipt upload)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS payment_requests (
+  id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  transaction_number     TEXT NOT NULL,
+  course_id              UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  full_name              TEXT NOT NULL,
+  email                  TEXT NOT NULL,
+  phone                  TEXT NOT NULL,
+  amount_cents           INTEGER NOT NULL CHECK (amount_cents >= 0),
+  currency               TEXT NOT NULL DEFAULT 'PHP',
+  status                 TEXT NOT NULL DEFAULT 'pending_payment'
+    CHECK (status IN ('pending_payment', 'receipt_uploaded', 'approved', 'rejected', 'expired')),
+  receipt_path           TEXT,
+  receipt_uploaded_at    TIMESTAMPTZ,
+  upload_token_hash      TEXT NOT NULL,
+  upload_token_expires_at TIMESTAMPTZ NOT NULL,
+  reviewed_by            UUID REFERENCES users(id) ON DELETE SET NULL,
+  reviewed_at            TIMESTAMPTZ,
+  admin_note             TEXT,
+  user_id                UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS payment_requests_txn_uidx ON payment_requests (transaction_number);
+CREATE INDEX IF NOT EXISTS payment_requests_status_idx ON payment_requests (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS payment_requests_email_idx ON payment_requests (lower(email));
+CREATE INDEX IF NOT EXISTS payment_requests_token_idx ON payment_requests (upload_token_hash);
+
+DROP TRIGGER IF EXISTS payment_requests_set_updated_at ON payment_requests;
+CREATE TRIGGER payment_requests_set_updated_at
+  BEFORE UPDATE ON payment_requests
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- notifications (in-app inbox)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS notifications (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type         TEXT NOT NULL,
+  title        TEXT NOT NULL,
+  body         TEXT,
+  link         TEXT,
+  reference_id TEXT,
+  read_at      TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS notifications_user_created_idx
+  ON notifications (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS notifications_user_unread_idx
+  ON notifications (user_id)
+  WHERE read_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS notifications_dedupe_uidx
+  ON notifications (user_id, type, reference_id)
+  WHERE reference_id IS NOT NULL;
