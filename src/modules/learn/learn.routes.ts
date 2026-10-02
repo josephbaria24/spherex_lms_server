@@ -4,6 +4,7 @@ import { query } from "../../config/db.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/httpError.js";
 import { requireAuth } from "../../middleware/auth.js";
+import { requireVerifiedEmail } from "../../middleware/require-email-verified.js";
 import { validate } from "../../middleware/validate.js";
 import { assertLearnAccess } from "../../lib/org-course-access.js";
 import {
@@ -29,6 +30,7 @@ import { getLearnAchievements } from "../../lib/learn-achievements.js";
 
 const router = Router();
 router.use(requireAuth);
+router.use(requireVerifiedEmail);
 
 // GET /learn/dashboard — learner stats from real progress data
 router.get(
@@ -87,11 +89,14 @@ router.get(
 
     const lessons = await query(
       `SELECT l.id, l.title, l.description, l.content_type, l.sort_order, l.duration_minutes, l.status,
+              l.parent_lesson_id,
+              q.title AS quiz_title,
               ${LESSON_COMPLETED_CASE} AS completed,
               ${LESSON_STARTED_CASE} AS started
          FROM lessons l
          LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.user_id = $2
          LEFT JOIN scorm_data sd ON sd.lesson_id = l.id AND sd.user_id = $2
+         LEFT JOIN quizzes q ON q.lesson_id = l.id
         WHERE l.course_id = $1 AND l.status = 'published'
         ORDER BY l.sort_order, l.created_at`,
       [courseId, req.user!.sub],
@@ -192,8 +197,12 @@ router.post(
       [lessonId, courseId],
     );
     if (!lesson.rows[0]) throw HttpError.notFound("Lesson not found");
-    if (lesson.rows[0].content_type === "articulate") {
+    const contentType = lesson.rows[0].content_type;
+    if (contentType === "articulate") {
       throw HttpError.badRequest("Complete this lesson in the SCORM player");
+    }
+    if (contentType === "quiz") {
+      throw HttpError.badRequest("Complete this lesson by passing the quiz");
     }
 
     await markLessonComplete(req.user!.sub, lessonId, courseId);

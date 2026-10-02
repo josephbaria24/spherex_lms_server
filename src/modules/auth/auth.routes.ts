@@ -10,6 +10,7 @@ import { env, isProd } from "../../config/env.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
 import { sendMail, appUrl } from "../../lib/mailer.js";
+import { consumeVerificationCode, issueVerificationCode } from "../../lib/email-verification.js";
 
 interface UserRow {
   id: string;
@@ -24,6 +25,7 @@ interface UserRow {
   notify_training: boolean;
   notify_course_updates: boolean;
   must_change_password: boolean;
+  email_verified: boolean;
   created_at: Date;
 }
 
@@ -53,6 +55,10 @@ const changePasswordSchema = z.object({
   new_password: z.string().min(8).max(128),
 });
 
+const verifyEmailSchema = z.object({
+  code: z.string().min(4).max(12),
+});
+
 function hashResetToken(raw: string): string {
   return createHash("sha256").update(raw).digest("hex");
 }
@@ -70,8 +76,20 @@ function publicUser(row: UserRow) {
     notify_training: row.notify_training,
     notify_course_updates: row.notify_course_updates,
     must_change_password: row.must_change_password ?? false,
+    email_verified: row.email_verified ?? true,
     created_at: row.created_at,
   };
+}
+
+function issueSession(res: Response, user: UserRow): string {
+  const token = signSession({
+    sub: user.id,
+    email: user.email,
+    role: user.role,
+    email_verified: user.email_verified ?? true,
+  });
+  setSessionCookie(res, token);
+  return token;
 }
 
 function setSessionCookie(res: Response, token: string) {
@@ -97,7 +115,8 @@ function clearSessionCookie(res: Response) {
 
 const USER_SELECT = `id, email, password_hash, full_name, name, role, status,
   phone, notify_email, notify_training, notify_course_updates,
-  COALESCE(must_change_password, false) AS must_change_password, created_at`;
+  COALESCE(must_change_password, false) AS must_change_password,
+  COALESCE(email_verified, true) AS email_verified, created_at`;
 
 const router = Router();
 
@@ -117,17 +136,23 @@ router.post(
 
     const password_hash = await hashPassword(password);
     const inserted = await query<UserRow>(
-      `INSERT INTO users (email, password_hash, full_name, name)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO users (email, password_hash, full_name, name, email_verified)
+       VALUES ($1, $2, $3, $4, false)
        RETURNING ${USER_SELECT}`,
       [email.toLowerCase(), password_hash, full_name ?? null, name ?? full_name ?? null],
     );
 
     const user = inserted.rows[0]!;
-    const token = signSession({ sub: user.id, email: user.email, role: user.role });
-    setSessionCookie(res, token);
+    let verification_email_sent = false;
+    try {
+      const issued = await issueVerificationCode(user);
+      verification_email_sent = issued.sent;
+    } catch {
+      verification_email_sent = false;
+    }
 
-    res.status(201).json({ user: publicUser(user), token });
+    const token = issueSession(res, user);
+    res.status(201).json({ user: publicUser(user), token, verification_email_sent });
   }),
 );
 
@@ -151,9 +176,7 @@ router.post(
     const ok = await verifyPassword(password, user.password_hash);
     if (!ok) throw HttpError.unauthorized("Invalid email or password");
 
-    const token = signSession({ sub: user.id, email: user.email, role: user.role });
-    setSessionCookie(res, token);
-
+    const token = issueSession(res, user);
     res.json({ user: publicUser(user), token });
   }),
 );
@@ -177,6 +200,54 @@ router.get(
     const user = result.rows[0];
     if (!user) throw HttpError.unauthorized();
     res.json({ user: publicUser(user) });
+  }),
+);
+
+router.post(
+  "/verify-email",
+  requireAuth,
+  validate(verifyEmailSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { code } = verifyEmailSchema.parse(req.body);
+    const result = await query<UserRow>(
+      `SELECT ${USER_SELECT} FROM users WHERE id = $1 LIMIT 1`,
+      [req.user!.sub],
+    );
+    const user = result.rows[0];
+    if (!user) throw HttpError.unauthorized();
+
+    if (!user.email_verified) {
+      await consumeVerificationCode(user.id, code);
+      user.email_verified = true;
+    }
+
+    const token = issueSession(res, user);
+    res.json({ user: publicUser(user), token });
+  }),
+);
+
+router.post(
+  "/resend-verification",
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const result = await query<UserRow>(
+      `SELECT ${USER_SELECT} FROM users WHERE id = $1 LIMIT 1`,
+      [req.user!.sub],
+    );
+    const user = result.rows[0];
+    if (!user) throw HttpError.unauthorized();
+    if (user.email_verified) {
+      throw HttpError.badRequest("Email is already verified");
+    }
+
+    const issued = await issueVerificationCode(user, { enforceCooldown: true });
+    res.json({
+      ok: true,
+      sent: issued.sent,
+      message: issued.sent
+        ? "A new verification code has been sent."
+        : "Could not send email. Check SMTP settings and try again.",
+    });
   }),
 );
 

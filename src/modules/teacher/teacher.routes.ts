@@ -25,6 +25,26 @@ const orgIdParam = z.object({ orgId: z.string().uuid() });
 const idParam = z.object({ id: z.string().uuid() });
 const courseIdQuery = z.object({ course_id: z.string().uuid().optional() });
 
+/** Remote story.html URLs, or local SCORM paths written after zip upload. */
+const lessonLaunchUrl = z
+  .string()
+  .max(2000)
+  .refine(
+    (value) => {
+      const v = value.trim();
+      if (!v) return true;
+      if (v.startsWith("/uploads/") || v.startsWith("/api/lms/uploads/")) return true;
+      try {
+        const parsed = new URL(v);
+        return parsed.protocol === "http:" || parsed.protocol === "https:";
+      } catch {
+        return false;
+      }
+    },
+    { message: "Must be an http(s) URL or an uploaded /uploads path" },
+  )
+  .optional();
+
 const lessonSchema = z.object({
   course_id: z.string().uuid(),
   title: z.string().min(1).max(200),
@@ -32,11 +52,12 @@ const lessonSchema = z.object({
   content: z.string().optional(),
   content_type: z.enum(["text", "video", "articulate", "quiz"]).optional(),
   video_url: z.string().optional(),
-  articulate_url: z.string().url().optional().or(z.literal("")),
+  articulate_url: lessonLaunchUrl,
   articulate_launch_mode: z.enum(["story", "scorm"]).optional(),
   sort_order: z.number().int().nonnegative().optional(),
   duration_minutes: z.number().int().positive().optional(),
   status: z.enum(["draft", "published"]).optional(),
+  parent_lesson_id: z.string().uuid().nullable().optional(),
 });
 
 const lessonUpdateSchema = lessonSchema.omit({ course_id: true }).partial();
@@ -232,6 +253,7 @@ orgRouter.get(
     const placeholders = targetIds.map((_, i) => `$${i + 1}`).join(", ");
     const result = await query(
       `SELECT l.*, c.title AS course_title,
+              q.title AS quiz_title,
               q.passing_score AS quiz_passing_score,
               (SELECT COUNT(*)::int FROM quiz_questions qq WHERE qq.quiz_id = q.id) AS quiz_question_count
          FROM lessons l
@@ -253,11 +275,25 @@ orgRouter.post(
     const orgId = getOrgId(req);
     const body = lessonSchema.parse(req.body);
     await assertTeacherCourseAccess(req, body.course_id, orgId);
+    if (body.parent_lesson_id) {
+      const parent = await query<{ course_id: string; parent_lesson_id: string | null }>(
+        `SELECT course_id, parent_lesson_id FROM lessons WHERE id = $1`,
+        [body.parent_lesson_id],
+      );
+      const row = parent.rows[0];
+      if (!row || row.course_id !== body.course_id) {
+        throw HttpError.badRequest("Parent lesson is not in this course");
+      }
+      if (row.parent_lesson_id) {
+        throw HttpError.badRequest("A quiz can only sit one level under a lesson");
+      }
+    }
 
     const result = await query(
       `INSERT INTO lessons (course_id, title, description, content, content_type, video_url,
-                            articulate_url, articulate_launch_mode, sort_order, duration_minutes, status, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+                            articulate_url, articulate_launch_mode, sort_order, duration_minutes, status, created_by,
+                            parent_lesson_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
       [
         body.course_id,
         body.title,
@@ -271,6 +307,7 @@ orgRouter.post(
         body.duration_minutes ?? 30,
         body.status ?? "draft",
         req.user!.sub,
+        body.parent_lesson_id ?? null,
       ],
     );
 

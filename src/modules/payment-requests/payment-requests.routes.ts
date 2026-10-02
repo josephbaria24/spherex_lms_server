@@ -4,6 +4,7 @@ import { query, withTransaction } from "../../config/db.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/httpError.js";
 import { requireAuth, requireAdmin } from "../../middleware/auth.js";
+import { requireVerifiedEmailIfAuthed } from "../../middleware/require-email-verified.js";
 import { validate } from "../../middleware/validate.js";
 import { env } from "../../config/env.js";
 import { sendMail, appUrl } from "../../lib/mailer.js";
@@ -91,6 +92,7 @@ async function findByUploadToken(rawToken: string): Promise<PaymentRequestRow | 
 router.post(
   "/",
   paymentRequestRateLimiter,
+  requireVerifiedEmailIfAuthed,
   validate(createSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const body = createSchema.parse(req.body);
@@ -439,19 +441,25 @@ router.post(
       body: `Your payment for "${pr.course_title}" was approved. You can start learning now.`,
       link: "/courses",
       referenceId: id,
+    }).catch(() => {
+      // Approval already committed — don't fail the HTTP response on inbox write.
     });
 
-    const instructorIds = await listCourseInstructorIds(pr.course_id);
-    await notifyUsers(
-      instructorIds.filter((iid) => iid !== userId),
-      {
-        type: "enrollment.created",
-        title: "New student enrolled",
-        body: `${pr.full_name} enrolled in "${pr.course_title}" via payment.`,
-        link: "/teacher",
-        referenceId: `pay-${id}`,
-      },
-    );
+    try {
+      const instructorIds = await listCourseInstructorIds(pr.course_id);
+      await notifyUsers(
+        instructorIds.filter((iid) => iid !== userId),
+        {
+          type: "enrollment.created",
+          title: "New student enrolled",
+          body: `${pr.full_name} enrolled in "${pr.course_title}" via payment.`,
+          link: "/teacher",
+          referenceId: `pay-${id}`,
+        },
+      );
+    } catch {
+      // Same: enrollment/approval must not roll back visually due to notify side effects.
+    }
 
     res.json({ ok: true, user_id: userId, account_created: created });
   }),

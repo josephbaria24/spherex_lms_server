@@ -4,6 +4,7 @@ import { query, withTransaction } from "../../config/db.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/httpError.js";
 import { requireAuth, requireAdmin } from "../../middleware/auth.js";
+import { requireVerifiedEmail } from "../../middleware/require-email-verified.js";
 import { validate } from "../../middleware/validate.js";
 import { isAdmin } from "../../lib/roles.js";
 import {
@@ -85,6 +86,7 @@ router.get(
 router.post(
   "/",
   requireAuth,
+  requireVerifiedEmail,
   validate(enrollSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { course_id, user_id, enroll_code } = enrollSchema.parse(req.body);
@@ -203,11 +205,26 @@ router.patch(
     if (fields.length === 0) throw HttpError.badRequest("No fields to update");
     values.push(id);
 
-    const result = await query(
+    const result = await query<{
+      user_id: string;
+      course_id: string;
+      completed: boolean;
+    }>(
       `UPDATE enrollments SET ${fields.join(", ")} WHERE id = $${i} RETURNING *`,
       values,
     );
-    res.json({ enrollment: result.rows[0] });
+    const enrollment = result.rows[0]!;
+
+    if (enrollment.completed) {
+      try {
+        const { issueCertificateIfNeeded } = await import("../../lib/certificates.js");
+        await issueCertificateIfNeeded(enrollment.user_id, enrollment.course_id);
+      } catch {
+        // ignore certificate side-effects
+      }
+    }
+
+    res.json({ enrollment });
   }),
 );
 

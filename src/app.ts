@@ -2,20 +2,23 @@ import express, { type Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
-import morgan from "morgan";
 import cookieParser from "cookie-parser";
 
-import { env, isProd } from "./config/env.js";
+import { env } from "./config/env.js";
 import { attachUser } from "./middleware/auth.js";
 import { errorHandler, notFound } from "./middleware/error.js";
 import { protectUploads } from "./middleware/protect-uploads.js";
 import { authRateLimiter } from "./middleware/rateLimit.js";
+import { attachRequestId, requestLogger } from "./middleware/request-logger.js";
 
 import authRoutes from "./modules/auth/auth.routes.js";
 import userRoutes from "./modules/users/users.routes.js";
 import courseRoutes from "./modules/courses/courses.routes.js";
 import enrollmentRoutes from "./modules/enrollments/enrollments.routes.js";
 import materialRoutes from "./modules/materials/materials.routes.js";
+import reviewerRoutes from "./modules/reviewers/reviewers.routes.js";
+import { createReviewerQuizRouter } from "./modules/reviewers/reviewer-quizzes.routes.js";
+import { createReviewerGroupRouter } from "./modules/reviewers/reviewer-groups.routes.js";
 import certificateRoutes from "./modules/certificates/certificates.routes.js";
 import trainingRoutes from "./modules/training/training.routes.js";
 import bunnyRoutes from "./modules/bunny/bunny.routes.js";
@@ -31,7 +34,9 @@ import { initUploadsDirectory, getUploadsRoot } from "./lib/org-uploads.js";
 import { initLessonUploadsDirectory } from "./lib/lesson-uploads.js";
 import { initScormUploadsDirectory } from "./lib/scorm-uploads.js";
 import { initCourseUploadsDirectory } from "./lib/course-uploads.js";
+import { initReviewerGroupUploadsDirectory } from "./lib/reviewer-group-uploads.js";
 import { initReceiptUploadsDirectory } from "./lib/payment-requests.js";
+import { initCertificatePhotoUploadsDirectory } from "./lib/certificates.js";
 
 export function createApp(): Express {
   const app = express();
@@ -40,7 +45,9 @@ export function createApp(): Express {
   initLessonUploadsDirectory();
   initScormUploadsDirectory();
   initCourseUploadsDirectory();
+  initReviewerGroupUploadsDirectory();
   initReceiptUploadsDirectory();
+  initCertificatePhotoUploadsDirectory();
 
   app.disable("x-powered-by");
   app.set("trust proxy", 1);
@@ -56,7 +63,8 @@ export function createApp(): Express {
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: true, limit: "1mb" }));
   app.use(cookieParser());
-  app.use(morgan(isProd ? "combined" : "dev"));
+  app.use(requestLogger);
+  app.use(attachRequestId);
 
   app.use(attachUser);
 
@@ -78,6 +86,9 @@ export function createApp(): Express {
   app.use("/api/courses", courseRoutes);
   app.use("/api/enrollments", enrollmentRoutes);
   app.use("/api/materials", materialRoutes);
+  app.use("/api/reviewers", createReviewerGroupRouter());
+  app.use("/api/reviewers", createReviewerQuizRouter());
+  app.use("/api/reviewers", reviewerRoutes);
   app.use("/api/certificates", certificateRoutes);
   app.use("/api/training", trainingRoutes);
   app.use("/api/teacher", teacherRoutes);

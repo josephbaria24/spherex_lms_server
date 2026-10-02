@@ -193,5 +193,14 @@ export async function updateEnrollmentProgress(
     [userId, courseId, progress, completed],
   );
 
+  if (completed) {
+    try {
+      const { issueCertificateIfNeeded } = await import("./certificates.js");
+      await issueCertificateIfNeeded(userId, courseId);
+    } catch {
+      // Completion must succeed even if certificate side-effects fail
+    }
+  }
+
   return { progress, completed, total, done, started };
 }

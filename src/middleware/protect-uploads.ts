@@ -4,7 +4,7 @@ import { isAdmin } from "../lib/roles.js";
 
 /**
  * Static uploads under /api/uploads:
- * - org logos / course covers: public (used on landing)
+ * - org logos / course covers / reviewer group covers: public (used on landing)
  * - receipts: admin only
  * - SCORM / lesson videos: authenticated users
  */
@@ -12,7 +12,7 @@ export function protectUploads(req: Request, _res: Response, next: NextFunction)
   const path = (req.path || "").replace(/^\/+/, "");
   const first = path.split("/")[0] ?? "";
 
-  if (first === "organizations" || first === "courses") {
+  if (first === "organizations" || first === "courses" || first === "reviewer-groups") {
     next();
     return;
   }

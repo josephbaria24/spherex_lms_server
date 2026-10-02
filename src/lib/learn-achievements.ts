@@ -1,17 +1,33 @@
 import { query } from "../config/db.js";
 import { getLearnDashboard } from "./learn-dashboard.js";
+import { issueCertificateIfNeeded } from "./certificates.js";
 
 export async function getLearnAchievements(userId: string) {
+  // Backfill certificates for courses already marked completed
+  const completed = await query<{ course_id: string }>(
+    `SELECT course_id FROM enrollments
+      WHERE user_id = $1 AND completed = true`,
+    [userId],
+  );
+  for (const row of completed.rows) {
+    try {
+      await issueCertificateIfNeeded(userId, row.course_id);
+    } catch {
+      // ignore
+    }
+  }
+
   const [dashboard, certificatesRes, historyRes] = await Promise.all([
     getLearnDashboard(userId),
     query<{
       id: string;
       course_id: string | null;
       certificate_url: string | null;
+      serial_number: string | null;
       issued_at: Date;
       course_title: string | null;
     }>(
-      `SELECT cert.id, cert.course_id, cert.certificate_url, cert.issued_at,
+      `SELECT cert.id, cert.course_id, cert.certificate_url, cert.serial_number, cert.issued_at,
               c.title AS course_title
          FROM certificates cert
          LEFT JOIN courses c ON c.id = cert.course_id
@@ -67,6 +83,8 @@ export async function getLearnAchievements(userId: string) {
       course_id: row.course_id,
       course_title: row.course_title,
       certificate_url: row.certificate_url,
+      serial_number: row.serial_number,
+      pdf_url: `/api/lms/certificates/${row.id}/pdf`,
       issued_at: row.issued_at.toISOString(),
     })),
     activity_history: historyRes.rows.map((row) => ({

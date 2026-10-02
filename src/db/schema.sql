@@ -84,6 +84,110 @@ CREATE INDEX IF NOT EXISTS materials_updated_at_idx ON materials (updated_at DES
 CREATE INDEX IF NOT EXISTS materials_type_idx       ON materials (type);
 
 -- ---------------------------------------------------------------------------
+-- reviewer_materials (public exam review resources: CSE, NLE, etc.)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS reviewer_materials (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title        TEXT NOT NULL,
+  description  TEXT,
+  exam_type    TEXT NOT NULL CHECK (exam_type IN ('CSE', 'NLE', 'LET', 'IELTS', 'Other')),
+  category     TEXT,
+  tags         TEXT[] NOT NULL DEFAULT '{}',
+  file_url     TEXT NOT NULL DEFAULT '',
+  external_url TEXT,
+  is_published BOOLEAN NOT NULL DEFAULT true,
+  uploaded_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS reviewer_materials_updated_at_idx ON reviewer_materials (updated_at DESC);
+CREATE INDEX IF NOT EXISTS reviewer_materials_exam_type_idx ON reviewer_materials (exam_type);
+CREATE INDEX IF NOT EXISTS reviewer_materials_published_idx ON reviewer_materials (is_published)
+  WHERE is_published = true;
+
+-- ---------------------------------------------------------------------------
+-- reviewer_quiz_groups (subject cards on the public Reviewers page)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS reviewer_quiz_groups (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title        TEXT NOT NULL,
+  description  TEXT,
+  exam_type    TEXT NOT NULL CHECK (exam_type IN ('CSE', 'NLE', 'LET', 'IELTS', 'Other')),
+  subject      TEXT NOT NULL DEFAULT 'General',
+  accent_color TEXT NOT NULL DEFAULT 'slate'
+                 CHECK (accent_color IN (
+                   'coral', 'indigo', 'amber', 'emerald', 'rose', 'sky', 'violet', 'slate'
+                 )),
+  cover_url    TEXT,
+  sort_order   INTEGER NOT NULL DEFAULT 0,
+  is_published BOOLEAN NOT NULL DEFAULT true,
+  created_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
+-- reviewer_quizzes (public practice quizzes, e.g. CSE from PDF reviewers)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS reviewer_quizzes (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  material_id    UUID REFERENCES reviewer_materials(id) ON DELETE SET NULL,
+  group_id       UUID REFERENCES reviewer_quiz_groups(id) ON DELETE SET NULL,
+  title          TEXT NOT NULL,
+  description    TEXT,
+  exam_type      TEXT NOT NULL CHECK (exam_type IN ('CSE', 'NLE', 'LET', 'IELTS', 'Other')),
+  category       TEXT,
+  passing_score  INTEGER NOT NULL DEFAULT 70 CHECK (passing_score BETWEEN 0 AND 100),
+  sort_order     INTEGER NOT NULL DEFAULT 0,
+  is_published   BOOLEAN NOT NULL DEFAULT true,
+  passage_html   TEXT,
+  audio_url      TEXT,
+  time_limit_seconds INTEGER CHECK (time_limit_seconds IS NULL OR time_limit_seconds > 0),
+  created_by     UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE reviewer_quizzes ADD COLUMN IF NOT EXISTS group_id UUID REFERENCES reviewer_quiz_groups(id) ON DELETE SET NULL;
+ALTER TABLE reviewer_quizzes ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE reviewer_quizzes ADD COLUMN IF NOT EXISTS passage_html TEXT;
+ALTER TABLE reviewer_quizzes ADD COLUMN IF NOT EXISTS audio_url TEXT;
+ALTER TABLE reviewer_quizzes ADD COLUMN IF NOT EXISTS time_limit_seconds INTEGER;
+
+CREATE TABLE IF NOT EXISTS reviewer_quiz_questions (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  quiz_id           UUID NOT NULL REFERENCES reviewer_quizzes(id) ON DELETE CASCADE,
+  sort_order        INTEGER NOT NULL DEFAULT 0,
+  prompt            TEXT NOT NULL,
+  question_type     TEXT NOT NULL DEFAULT 'multiple_choice'
+                    CHECK (question_type IN ('multiple_choice', 'true_false', 'fill_blank', 'multi_select')),
+  options           JSONB NOT NULL DEFAULT '[]',
+  correct_option_id TEXT NOT NULL,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS reviewer_quiz_attempts (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  quiz_id    UUID NOT NULL REFERENCES reviewer_quizzes(id) ON DELETE CASCADE,
+  user_id    UUID REFERENCES users(id) ON DELETE SET NULL,
+  score      INTEGER NOT NULL CHECK (score BETWEEN 0 AND 100),
+  passed     BOOLEAN NOT NULL,
+  band_score NUMERIC(3,1) CHECK (band_score IS NULL OR (band_score >= 0 AND band_score <= 9)),
+  answers    JSONB NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS reviewer_quizzes_exam_type_idx ON reviewer_quizzes (exam_type);
+CREATE INDEX IF NOT EXISTS reviewer_quizzes_published_idx ON reviewer_quizzes (is_published)
+  WHERE is_published = true;
+CREATE INDEX IF NOT EXISTS reviewer_quizzes_group_id_idx ON reviewer_quizzes (group_id);
+CREATE INDEX IF NOT EXISTS reviewer_quiz_questions_quiz_idx ON reviewer_quiz_questions (quiz_id, sort_order);
+CREATE INDEX IF NOT EXISTS reviewer_quiz_groups_exam_type_idx ON reviewer_quiz_groups (exam_type);
+CREATE INDEX IF NOT EXISTS reviewer_quiz_groups_published_idx ON reviewer_quiz_groups (is_published)
+  WHERE is_published = true;
+
+-- ---------------------------------------------------------------------------
 -- certificates
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS certificates (
@@ -91,10 +195,19 @@ CREATE TABLE IF NOT EXISTS certificates (
   user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   course_id       UUID REFERENCES courses(id) ON DELETE SET NULL,
   certificate_url TEXT,
+  serial_number   TEXT,
   issued_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS serial_number TEXT;
+
 CREATE INDEX IF NOT EXISTS certificates_user_idx ON certificates (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS certificates_serial_uidx
+  ON certificates (serial_number)
+  WHERE serial_number IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS certificates_user_course_uidx
+  ON certificates (user_id, course_id)
+  WHERE course_id IS NOT NULL;
 
 -- ---------------------------------------------------------------------------
 -- training_sessions  (referenced by /training UI; previously mock-only)
@@ -165,6 +278,8 @@ ALTER TABLE lessons DROP CONSTRAINT IF EXISTS lessons_articulate_launch_mode_che
 ALTER TABLE lessons
   ADD CONSTRAINT lessons_articulate_launch_mode_check
   CHECK (articulate_launch_mode IN ('story', 'scorm'));
+ALTER TABLE lessons ADD COLUMN IF NOT EXISTS parent_lesson_id UUID REFERENCES lessons(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS lessons_parent_idx ON lessons (parent_lesson_id);
 
 -- ---------------------------------------------------------------------------
 -- quizzes  (1:1 with quiz-type lessons)
@@ -407,6 +522,8 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email BOOLEAN NOT NULL DEFAULT
 ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_training BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_course_updates BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS certificate_photo_path TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT true;
 
 -- ---------------------------------------------------------------------------
 -- password_reset_tokens
@@ -422,6 +539,21 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
 
 CREATE INDEX IF NOT EXISTS password_reset_tokens_user_idx ON password_reset_tokens (user_id);
 CREATE INDEX IF NOT EXISTS password_reset_tokens_hash_idx ON password_reset_tokens (token_hash);
+
+-- ---------------------------------------------------------------------------
+-- email_verification_codes (6-digit codes; hashed at rest)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS email_verification_codes (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code_hash  TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS email_verification_codes_user_idx ON email_verification_codes (user_id);
+CREATE INDEX IF NOT EXISTS email_verification_codes_hash_idx ON email_verification_codes (code_hash);
 
 -- ---------------------------------------------------------------------------
 -- payment_requests (manual bank transfer + receipt upload)

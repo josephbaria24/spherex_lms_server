@@ -13,7 +13,22 @@ import { handleCourseCoverUpload } from "../../middleware/course-cover-upload.js
 import { assertUserPassword } from "../../lib/assert-user-password.js";
 import { ensureUniqueEnrollCode } from "../../lib/course-enrollment.js";
 
-const storedAssetSchema = z.string().url().optional().or(z.literal(""));
+const storedAssetSchema = z
+  .string()
+  .optional()
+  .refine(
+    (value) => {
+      if (value == null || value === "") return true;
+      if (value.startsWith("/uploads/") || value.startsWith("/api/lms/uploads/")) return true;
+      try {
+        const url = new URL(value);
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch {
+        return false;
+      }
+    },
+    { message: "Use an uploaded file path or an http(s) URL" },
+  );
 
 const courseSchema = z.object({
   title: z.string().min(1).max(200),
@@ -48,15 +63,14 @@ const listQuery = z.object({
 
 const router = Router();
 
-// GET /courses  (any authenticated user)
+// GET /courses  (public catalog; is_enrolled is set when a session is present)
 router.get(
   "/",
-  requireAuth,
   validate(listQuery, "query"),
   asyncHandler(async (req: Request, res: Response) => {
     const filters = listQuery.parse(req.query);
     const where: string[] = [];
-    const values: unknown[] = [req.user!.sub];
+    const values: unknown[] = [req.user?.sub ?? null];
     let i = 2;
 
     if (filters.category) {

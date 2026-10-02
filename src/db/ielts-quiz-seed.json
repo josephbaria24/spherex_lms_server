@@ -1,0 +1,781 @@
+{
+  "source": "IELTS Academic practice (Phase 2 — passage, timer, fill-blank, multi-select)",
+  "groups": [
+    {
+      "title": "Listening",
+      "subject": "Listening",
+      "description": "Timed Listening drills with practice audio — form completion, campus tour, conversations, and more.",
+      "accent_color": "sky",
+      "sort_order": 10
+    },
+    {
+      "title": "Reading",
+      "subject": "Reading",
+      "description": "Academic passages with a shared reading panel — timed MCQ, multi-select, and fill-blank practice.",
+      "accent_color": "indigo",
+      "sort_order": 20
+    },
+    {
+      "title": "Writing",
+      "subject": "Writing",
+      "description": "Task 1 & Task 2 practice coming soon. Essay submission arrives in Phase 3.",
+      "accent_color": "amber",
+      "sort_order": 30
+    },
+    {
+      "title": "Speaking",
+      "subject": "Speaking",
+      "description": "Part 1–3 speaking practice coming soon. Recording & scoring arrive in Phase 3.",
+      "accent_color": "rose",
+      "sort_order": 40
+    }
+  ],
+  "quizzes": [
+    {
+      "group_subject": "Listening",
+      "title": "IELTS Listening — Form Completion (Starter)",
+      "description": "Hotel booking call. Listen and complete the form-style questions.",
+      "exam_type": "IELTS",
+      "category": "Listening - Form completion",
+      "passing_score": 70,
+      "audio_url": "/media/ielts/hotel-booking.wav",
+      "time_limit_seconds": 600,
+      "questions": [
+        {
+          "prompt": "The caller wants to book a double room for how many nights?",
+          "question_type": "fill_blank",
+          "options": [],
+          "correct_option_id": "3"
+        },
+        {
+          "prompt": "What is the guest's surname? (spelling counts)",
+          "question_type": "fill_blank",
+          "options": [{ "id": "alt", "text": "thompson" }],
+          "correct_option_id": "Thompson"
+        },
+        {
+          "prompt": "Which facilities does the hotel offer? (choose all that apply)",
+          "question_type": "multi_select",
+          "options": [
+            { "id": "a", "text": "Free Wi-Fi" },
+            { "id": "b", "text": "Indoor pool" },
+            { "id": "c", "text": "Airport shuttle" },
+            { "id": "d", "text": "Helipad" }
+          ],
+          "correct_option_id": "a,b,c"
+        },
+        {
+          "prompt": "What time is breakfast served until?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "8:00 am" },
+            { "id": "b", "text": "9:30 am" },
+            { "id": "c", "text": "10:00 am" },
+            { "id": "d", "text": "11:00 am" }
+          ],
+          "correct_option_id": "c"
+        },
+        {
+          "prompt": "The booking confirmation number is:",
+          "question_type": "fill_blank",
+          "options": [],
+          "correct_option_id": "HT4821"
+        },
+        {
+          "prompt": "True or false: In IELTS Listening, each recording is usually played only once.",
+          "question_type": "true_false",
+          "options": [
+            { "id": "true", "text": "True" },
+            { "id": "false", "text": "False" }
+          ],
+          "correct_option_id": "true"
+        }
+      ]
+    },
+    {
+      "group_subject": "Listening",
+      "title": "IELTS Listening — Campus Tour",
+      "description": "A guide welcomes new students. Listen for times, places, and services.",
+      "exam_type": "IELTS",
+      "category": "Listening - Campus tour",
+      "passing_score": 70,
+      "audio_url": "/media/ielts/campus-tour.wav",
+      "time_limit_seconds": 540,
+      "questions": [
+        {
+          "prompt": "What is the library's closing time on weekdays?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "8 pm" },
+            { "id": "b", "text": "9 pm" },
+            { "id": "c", "text": "10 pm" },
+            { "id": "d", "text": "11 pm" }
+          ],
+          "correct_option_id": "c"
+        },
+        {
+          "prompt": "When is the library closed?",
+          "question_type": "fill_blank",
+          "options": [{ "id": "alt", "text": "sunday" }],
+          "correct_option_id": "Sundays"
+        },
+        {
+          "prompt": "Where are student ID cards issued?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "The main library" },
+            { "id": "b", "text": "The Student Union building" },
+            { "id": "c", "text": "The sports centre" },
+            { "id": "d", "text": "The Admin Block café" }
+          ],
+          "correct_option_id": "b"
+        },
+        {
+          "prompt": "Hot meals in the campus café are served until:",
+          "question_type": "fill_blank",
+          "options": [
+            { "id": "a1", "text": "2.30" },
+            { "id": "a2", "text": "14:30" },
+            { "id": "a3", "text": "two thirty" }
+          ],
+          "correct_option_id": "2:30"
+        },
+        {
+          "prompt": "Where is the Academic Advice office?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Ground floor of the library" },
+            { "id": "b", "text": "Second floor of the Admin Block" },
+            { "id": "c", "text": "First floor of the Student Union" },
+            { "id": "d", "text": "Beside the main gate" }
+          ],
+          "correct_option_id": "b"
+        },
+        {
+          "prompt": "How often do free campus shuttle buses leave from the main gate?",
+          "question_type": "fill_blank",
+          "options": [
+            { "id": "a1", "text": "every 20 minutes" },
+            { "id": "a2", "text": "20 minutes" }
+          ],
+          "correct_option_id": "every twenty minutes"
+        }
+      ]
+    },
+    {
+      "group_subject": "Listening",
+      "title": "IELTS Listening — Museum Exhibit",
+      "description": "A museum educator recommends a temporary exhibition. Listen for purpose, prices, and details.",
+      "exam_type": "IELTS",
+      "category": "Listening - Monologue",
+      "passing_score": 70,
+      "audio_url": "/media/ielts/museum-exhibit.wav",
+      "time_limit_seconds": 480,
+      "questions": [
+        {
+          "prompt": "What is the speaker's main purpose?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "To complain about ticket prices" },
+            { "id": "b", "text": "To recommend a temporary exhibition" },
+            { "id": "c", "text": "To announce a building renovation" },
+            { "id": "d", "text": "To recruit volunteer guides" }
+          ],
+          "correct_option_id": "b"
+        },
+        {
+          "prompt": "What is the name of the temporary exhibition?",
+          "question_type": "fill_blank",
+          "options": [{ "id": "alt", "text": "rivers of glass" }],
+          "correct_option_id": "Rivers of Glass"
+        },
+        {
+          "prompt": "How much do students pay for the temporary show?",
+          "question_type": "fill_blank",
+          "options": [
+            { "id": "a1", "text": "£5" },
+            { "id": "a2", "text": "5 pounds" },
+            { "id": "a3", "text": "five pounds" }
+          ],
+          "correct_option_id": "5"
+        },
+        {
+          "prompt": "Which of the following are mentioned? (select all that apply)",
+          "question_type": "multi_select",
+          "options": [
+            { "id": "a", "text": "Photography without flash is allowed" },
+            { "id": "b", "text": "A free audio guide is available" },
+            { "id": "c", "text": "The café stays open until 9 pm" },
+            { "id": "d", "text": "The exhibition runs until the end of July" }
+          ],
+          "correct_option_id": "a,b,d"
+        },
+        {
+          "prompt": "Why does the café close early today?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Staff training" },
+            { "id": "b", "text": "A private event this evening" },
+            { "id": "c", "text": "A power cut" },
+            { "id": "d", "text": "Public holiday hours" }
+          ],
+          "correct_option_id": "b"
+        }
+      ]
+    },
+    {
+      "group_subject": "Listening",
+      "title": "IELTS Listening — Group Project",
+      "description": "Two students plan their media studies assignment. Listen for decisions and arrangements.",
+      "exam_type": "IELTS",
+      "category": "Listening - Conversation",
+      "passing_score": 70,
+      "audio_url": "/media/ielts/group-project.wav",
+      "time_limit_seconds": 480,
+      "questions": [
+        {
+          "prompt": "What do the students agree to do next?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Change the topic completely" },
+            { "id": "b", "text": "Ask the tutor for an extension" },
+            { "id": "c", "text": "Split the research and meet on Friday" },
+            { "id": "d", "text": "Submit the draft without revising" }
+          ],
+          "correct_option_id": "c"
+        },
+        {
+          "prompt": "What will one student cover in the research?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Television advertising only" },
+            { "id": "b", "text": "Social media trends" },
+            { "id": "c", "text": "Radio history" },
+            { "id": "d", "text": "Film editing software" }
+          ],
+          "correct_option_id": "b"
+        },
+        {
+          "prompt": "Where will they meet on Friday?",
+          "question_type": "fill_blank",
+          "options": [{ "id": "alt", "text": "the library" }],
+          "correct_option_id": "library"
+        },
+        {
+          "prompt": "What time will they meet?",
+          "question_type": "fill_blank",
+          "options": [
+            { "id": "a1", "text": "3" },
+            { "id": "a2", "text": "3.00" },
+            { "id": "a3", "text": "15:00" },
+            { "id": "a4", "text": "three o'clock" }
+          ],
+          "correct_option_id": "3:00"
+        },
+        {
+          "prompt": "What will one student bring to the meeting?",
+          "question_type": "fill_blank",
+          "options": [
+            { "id": "a1", "text": "survey results" },
+            { "id": "a2", "text": "the survey results" }
+          ],
+          "correct_option_id": "survey results"
+        }
+      ]
+    },
+    {
+      "group_subject": "Listening",
+      "title": "IELTS Listening — Weather Forecast",
+      "description": "A short regional weather outlook. Listen for conditions by day.",
+      "exam_type": "IELTS",
+      "category": "Listening - Forecast",
+      "passing_score": 70,
+      "audio_url": "/media/ielts/weather-forecast.wav",
+      "time_limit_seconds": 420,
+      "questions": [
+        {
+          "prompt": "What does the forecast predict for Sunday?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Heavy snow" },
+            { "id": "b", "text": "Clear and warm" },
+            { "id": "c", "text": "Strong winds and rain" },
+            { "id": "d", "text": "Dense fog all day" }
+          ],
+          "correct_option_id": "c"
+        },
+        {
+          "prompt": "Saturday temperatures will reach about __________ degrees.",
+          "question_type": "fill_blank",
+          "options": [
+            { "id": "a1", "text": "16" },
+            { "id": "a2", "text": "sixteen" }
+          ],
+          "correct_option_id": "16"
+        },
+        {
+          "prompt": "When should conditions improve?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Saturday evening" },
+            { "id": "b", "text": "Sunday afternoon" },
+            { "id": "c", "text": "Monday morning" },
+            { "id": "d", "text": "Tuesday night" }
+          ],
+          "correct_option_id": "c"
+        },
+        {
+          "prompt": "Travellers on Sunday should allow extra time because some __________ roads may flood.",
+          "question_type": "fill_blank",
+          "options": [],
+          "correct_option_id": "coastal"
+        }
+      ]
+    },
+    {
+      "group_subject": "Listening",
+      "title": "IELTS Listening — Job Interview",
+      "description": "Part of a hiring conversation. Listen for skills and start date.",
+      "exam_type": "IELTS",
+      "category": "Listening - Interview",
+      "passing_score": 70,
+      "audio_url": "/media/ielts/job-interview.wav",
+      "time_limit_seconds": 480,
+      "questions": [
+        {
+          "prompt": "Which skill does the candidate say is her strongest?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Public speaking" },
+            { "id": "b", "text": "Data analysis" },
+            { "id": "c", "text": "Graphic design" },
+            { "id": "d", "text": "Foreign languages" }
+          ],
+          "correct_option_id": "b"
+        },
+        {
+          "prompt": "In her last role, reporting time was reduced by:",
+          "question_type": "fill_blank",
+          "options": [
+            { "id": "a1", "text": "50%" },
+            { "id": "a2", "text": "half" },
+            { "id": "a3", "text": "1/2" }
+          ],
+          "correct_option_id": "half"
+        },
+        {
+          "prompt": "How does she feel about presenting to large audiences?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Very confident" },
+            { "id": "b", "text": "Less confident; she is taking a course" },
+            { "id": "c", "text": "She refuses to present" },
+            { "id": "d", "text": "She prefers only written reports" }
+          ],
+          "correct_option_id": "b"
+        },
+        {
+          "prompt": "When does the role start?",
+          "question_type": "fill_blank",
+          "options": [
+            { "id": "a1", "text": "1 September" },
+            { "id": "a2", "text": "September 1" },
+            { "id": "a3", "text": "1st of September" },
+            { "id": "a4", "text": "the first of September" }
+          ],
+          "correct_option_id": "1 September"
+        }
+      ]
+    },
+    {
+      "group_subject": "Listening",
+      "title": "IELTS Listening — Fitness Ad",
+      "description": "A short radio advert for a gym. Listen for offers and opening hours.",
+      "exam_type": "IELTS",
+      "category": "Listening - Advertisement",
+      "passing_score": 70,
+      "audio_url": "/media/ielts/fitness-ad.wav",
+      "time_limit_seconds": 360,
+      "questions": [
+        {
+          "prompt": "When does the free trial end?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "This Friday" },
+            { "id": "b", "text": "Next Monday" },
+            { "id": "c", "text": "End of the month" },
+            { "id": "d", "text": "After the first session only" }
+          ],
+          "correct_option_id": "a"
+        },
+        {
+          "prompt": "After the trial, membership starts at __________ pounds a month.",
+          "question_type": "fill_blank",
+          "options": [
+            { "id": "a1", "text": "29" },
+            { "id": "a2", "text": "£29" },
+            { "id": "a3", "text": "twenty nine" },
+            { "id": "a4", "text": "twenty-nine" }
+          ],
+          "correct_option_id": "29"
+        },
+        {
+          "prompt": "What are the opening hours?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "6 am to 8 pm, weekdays only" },
+            { "id": "b", "text": "6 am to 10 pm, seven days a week" },
+            { "id": "c", "text": "8 am to 10 pm, weekends only" },
+            { "id": "d", "text": "9 am to 9 pm, Monday to Saturday" }
+          ],
+          "correct_option_id": "b"
+        },
+        {
+          "prompt": "Which extras are included? (select all that apply)",
+          "question_type": "multi_select",
+          "options": [
+            { "id": "a", "text": "Lockers" },
+            { "id": "b", "text": "Showers" },
+            { "id": "c", "text": "Personal chef" },
+            { "id": "d", "text": "Free parking for a year" }
+          ],
+          "correct_option_id": "a,b"
+        }
+      ]
+    },
+    {
+      "group_subject": "Reading",
+      "title": "IELTS Reading — Urban Beekeeping",
+      "description": "One shared passage on the left; answer questions on the right. Timed like a short Academic Reading section.",
+      "exam_type": "IELTS",
+      "category": "Reading - Passage",
+      "passing_score": 70,
+      "time_limit_seconds": 900,
+      "passage_html": "Urban beekeeping has grown rapidly in several European cities over the past two decades. Advocates argue that rooftop hives support pollinators, produce local honey, and educate residents about food systems. City councils in places such as Paris and London have even promoted hive installations on public buildings.\n\nCritics, however, caution that dense colonies in flower-poor districts can strain limited nectar resources and increase competition with wild bees. Some ecologists recommend planting native wildflowers before adding more managed hives. Others note that not all urban honey meets commercial quality standards because of air pollution near busy roads.\n\nDespite the debate, community workshops remain popular. Participants learn hive safety, seasonal feeding, and how to harvest frames without harming the colony. Researchers continue to study whether carefully managed urban apiaries can coexist with wild pollinators when floral diversity is improved.",
+      "questions": [
+        {
+          "prompt": "What is one argument made by critics of urban beekeeping?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Hives are too expensive for cities to maintain" },
+            { "id": "b", "text": "Dense colonies may compete with wild bees for flowers" },
+            { "id": "c", "text": "Honey from rooftops is always unsafe to eat" },
+            { "id": "d", "text": "Beekeeping reduces tourism in city centres" }
+          ],
+          "correct_option_id": "b"
+        },
+        {
+          "prompt": "According to advocates, rooftop hives can help people learn about:",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Food systems" },
+            { "id": "b", "text": "Building codes" },
+            { "id": "c", "text": "Airline safety" },
+            { "id": "d", "text": "Marine biology" }
+          ],
+          "correct_option_id": "a"
+        },
+        {
+          "prompt": "Which cities are mentioned as promoting hives on public buildings?",
+          "question_type": "multi_select",
+          "options": [
+            { "id": "a", "text": "Paris" },
+            { "id": "b", "text": "London" },
+            { "id": "c", "text": "Tokyo" },
+            { "id": "d", "text": "Cairo" }
+          ],
+          "correct_option_id": "a,b"
+        },
+        {
+          "prompt": "Some ecologists recommend planting __________ before adding more managed hives.",
+          "question_type": "fill_blank",
+          "options": [
+            { "id": "alt1", "text": "native wild flowers" },
+            { "id": "alt2", "text": "wildflowers" }
+          ],
+          "correct_option_id": "native wildflowers"
+        },
+        {
+          "prompt": "Community workshops teach participants about (select all that apply):",
+          "question_type": "multi_select",
+          "options": [
+            { "id": "a", "text": "Hive safety" },
+            { "id": "b", "text": "Seasonal feeding" },
+            { "id": "c", "text": "Aircraft maintenance" },
+            { "id": "d", "text": "Harvesting frames safely" }
+          ],
+          "correct_option_id": "a,b,d"
+        },
+        {
+          "prompt": "The passage states that all urban honey meets commercial quality standards.",
+          "question_type": "true_false",
+          "options": [
+            { "id": "true", "text": "True" },
+            { "id": "false", "text": "False" }
+          ],
+          "correct_option_id": "false"
+        }
+      ]
+    },
+    {
+      "group_subject": "Reading",
+      "title": "IELTS Reading — Coastal Piers",
+      "description": "A historical passage about seaside piers. Use the shared reading panel on the left.",
+      "exam_type": "IELTS",
+      "category": "Reading - Passage",
+      "passing_score": 70,
+      "time_limit_seconds": 900,
+      "passage_html": "In the late nineteenth century, many coastal towns built piers as leisure destinations. Steamships brought day-trippers who sought entertainment, fresh air, and sea views. Over time, some piers declined as holiday patterns shifted inland, while others reinvented themselves with theatres, arcades, and festivals.\n\nVictorian engineers often used cast iron and timber to create long walkways that stretched beyond the shoreline. Ticket booths, bandstands, and tea rooms made a visit feel like a special outing. Local newspapers advertised evening concerts and firework displays that drew crowds from nearby cities.\n\nToday, heritage groups campaign to restore surviving piers, arguing that they preserve coastal identity and support tourism. Critics sometimes call restoration expensive, yet towns that invest carefully often see returning visitors and new small businesses along the waterfront.",
+      "questions": [
+        {
+          "prompt": "Why were many piers originally built?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "As military lookouts" },
+            { "id": "b", "text": "As leisure destinations for visitors" },
+            { "id": "c", "text": "As permanent housing for fishermen" },
+            { "id": "d", "text": "As bridges to nearby islands" }
+          ],
+          "correct_option_id": "b"
+        },
+        {
+          "prompt": "What caused some piers to decline?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "A ban on steamships" },
+            { "id": "b", "text": "Holiday patterns moving inland" },
+            { "id": "c", "text": "Too many theatres on each pier" },
+            { "id": "d", "text": "A shortage of sea views" }
+          ],
+          "correct_option_id": "b"
+        },
+        {
+          "prompt": "Victorian engineers often used which materials? (select all that apply)",
+          "question_type": "multi_select",
+          "options": [
+            { "id": "a", "text": "Cast iron" },
+            { "id": "b", "text": "Timber" },
+            { "id": "c", "text": "Plastic panels" },
+            { "id": "d", "text": "Carbon fibre" }
+          ],
+          "correct_option_id": "a,b"
+        },
+        {
+          "prompt": "Heritage groups argue that restoring piers can support __________.",
+          "question_type": "fill_blank",
+          "options": [],
+          "correct_option_id": "tourism"
+        },
+        {
+          "prompt": "The passage says every pier restoration project is inexpensive.",
+          "question_type": "true_false",
+          "options": [
+            { "id": "true", "text": "True" },
+            { "id": "false", "text": "False" }
+          ],
+          "correct_option_id": "false"
+        }
+      ]
+    },
+    {
+      "group_subject": "Reading",
+      "title": "IELTS Reading — Sleep Quality",
+      "description": "Academic-style extract on sleep quantity vs quality.",
+      "exam_type": "IELTS",
+      "category": "Reading - Passage",
+      "passing_score": 70,
+      "time_limit_seconds": 840,
+      "passage_html": "Sleep researchers distinguish between sleep quantity and sleep quality. Adults who sleep seven to nine hours may still feel unrested if sleep is fragmented by noise, light, or irregular schedules. Consistent bedtimes and darker bedrooms often improve restorative stages of sleep more than simply staying in bed longer.\n\nElectronic screens are a common culprit. Blue light close to bedtime can delay melatonin release, making it harder to fall asleep. Experts therefore recommend dimming devices an hour before bed, or using night-mode settings when screens are unavoidable.\n\nCaffeine also matters. Because it can remain active in the body for several hours, many specialists advise avoiding coffee after mid-afternoon. Exercise earlier in the day, by contrast, is linked with deeper sleep for many people — though intense workouts late at night may have the opposite effect.",
+      "questions": [
+        {
+          "prompt": "The passage suggests that sleeping longer always means better rest.",
+          "question_type": "true_false",
+          "options": [
+            { "id": "true", "text": "True" },
+            { "id": "false", "text": "False" }
+          ],
+          "correct_option_id": "false"
+        },
+        {
+          "prompt": "Which factor is mentioned as improving restorative sleep?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Brighter bedroom lighting" },
+            { "id": "b", "text": "More irregular schedules" },
+            { "id": "c", "text": "Consistent bedtimes" },
+            { "id": "d", "text": "Shorter nights every weekend" }
+          ],
+          "correct_option_id": "c"
+        },
+        {
+          "prompt": "Blue light close to bedtime can delay __________ release.",
+          "question_type": "fill_blank",
+          "options": [],
+          "correct_option_id": "melatonin"
+        },
+        {
+          "prompt": "According to the passage, which habits can help sleep? (select all that apply)",
+          "question_type": "multi_select",
+          "options": [
+            { "id": "a", "text": "Dimming devices before bed" },
+            { "id": "b", "text": "Avoiding coffee after mid-afternoon" },
+            { "id": "c", "text": "Intense workouts late at night" },
+            { "id": "d", "text": "Exercise earlier in the day" }
+          ],
+          "correct_option_id": "a,b,d"
+        },
+        {
+          "prompt": "Recommended adult sleep length mentioned in the passage is about:",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "4 to 5 hours" },
+            { "id": "b", "text": "7 to 9 hours" },
+            { "id": "c", "text": "10 to 12 hours" },
+            { "id": "d", "text": "Exactly 6 hours" }
+          ],
+          "correct_option_id": "b"
+        }
+      ]
+    },
+    {
+      "group_subject": "Reading",
+      "title": "IELTS Reading — Coral Bleaching",
+      "description": "A short science passage on coral stress and recovery.",
+      "exam_type": "IELTS",
+      "category": "Reading - Passage",
+      "passing_score": 70,
+      "time_limit_seconds": 780,
+      "passage_html": "Coral bleaching occurs when stressed corals expel the algae that give them colour and energy. Rising sea temperatures are a major trigger. Some reefs recover if conditions improve quickly; repeated or prolonged heat can lead to widespread mortality.\n\nScientists monitor bleaching events with satellite sea-surface temperature data and underwater surveys. Local factors such as pollution and overfishing can make reefs less resilient, even when heat stress is moderate.\n\nConservation strategies include reducing coastal runoff, protecting herbivorous fish that keep algae in check, and, in some projects, cultivating heat-tolerant coral fragments for restoration. Researchers stress that global action on climate change remains essential if large reef systems are to survive this century.",
+      "questions": [
+        {
+          "prompt": "What do corals expel during bleaching?",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Salt crystals" },
+            { "id": "b", "text": "Symbiotic algae" },
+            { "id": "c", "text": "Sand particles" },
+            { "id": "d", "text": "Fish eggs" }
+          ],
+          "correct_option_id": "b"
+        },
+        {
+          "prompt": "Reefs are more likely to recover when:",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Heat stress ends quickly" },
+            { "id": "b", "text": "Temperatures keep rising for years" },
+            { "id": "c", "text": "All algae permanently leave the reef" },
+            { "id": "d", "text": "Corals stop needing energy" }
+          ],
+          "correct_option_id": "a"
+        },
+        {
+          "prompt": "A major trigger for bleaching mentioned in the passage is rising __________ temperatures.",
+          "question_type": "fill_blank",
+          "options": [
+            { "id": "a1", "text": "ocean" },
+            { "id": "a2", "text": "water" }
+          ],
+          "correct_option_id": "sea"
+        },
+        {
+          "prompt": "Which local factors can reduce reef resilience? (select all that apply)",
+          "question_type": "multi_select",
+          "options": [
+            { "id": "a", "text": "Pollution" },
+            { "id": "b", "text": "Overfishing" },
+            { "id": "c", "text": "Protecting herbivorous fish" },
+            { "id": "d", "text": "Reducing coastal runoff" }
+          ],
+          "correct_option_id": "a,b"
+        },
+        {
+          "prompt": "Researchers say global action on climate change is essential for large reef systems.",
+          "question_type": "true_false",
+          "options": [
+            { "id": "true", "text": "True" },
+            { "id": "false", "text": "False" }
+          ],
+          "correct_option_id": "true"
+        }
+      ]
+    },
+    {
+      "group_subject": "Reading",
+      "title": "IELTS Reading — Vocabulary in Context",
+      "description": "Choose the meaning that best fits how the word is used in an Academic Reading–style sentence.",
+      "exam_type": "IELTS",
+      "category": "Reading - Vocabulary",
+      "passing_score": 70,
+      "time_limit_seconds": 480,
+      "questions": [
+        {
+          "prompt": "\"The committee's decision was provisional, pending the final audit.\"\n\nProvisional most nearly means:",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Permanent" },
+            { "id": "b", "text": "Temporary / subject to change" },
+            { "id": "c", "text": "Illegal" },
+            { "id": "d", "text": "Unanimous" }
+          ],
+          "correct_option_id": "b"
+        },
+        {
+          "prompt": "\"Researchers remained sceptical of the early results.\"\n\nSceptical most nearly means:",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Doubtful" },
+            { "id": "b", "text": "Enthusiastic" },
+            { "id": "c", "text": "Indifferent" },
+            { "id": "d", "text": "Confused" }
+          ],
+          "correct_option_id": "a"
+        },
+        {
+          "prompt": "\"The policy aimed to mitigate the impact of flooding.\"\n\nMitigate most nearly means:",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Ignore" },
+            { "id": "b", "text": "Worsen" },
+            { "id": "c", "text": "Reduce / lessen" },
+            { "id": "d", "text": "Celebrate" }
+          ],
+          "correct_option_id": "c"
+        },
+        {
+          "prompt": "\"Her account of the experiment was meticulous.\"\n\nMeticulous most nearly means:",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Careless" },
+            { "id": "b", "text": "Very careful and precise" },
+            { "id": "c", "text": "Humorous" },
+            { "id": "d", "text": "Incomplete" }
+          ],
+          "correct_option_id": "b"
+        },
+        {
+          "prompt": "\"The findings were inconclusive.\"\n\nInconclusive most nearly means:",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Not decisive / not settling the question" },
+            { "id": "b", "text": "Clearly proven" },
+            { "id": "c", "text": "Falsified" },
+            { "id": "d", "text": "Outdated" }
+          ],
+          "correct_option_id": "a"
+        },
+        {
+          "prompt": "\"The two theories are compatible.\"\n\nCompatible most nearly means:",
+          "question_type": "multiple_choice",
+          "options": [
+            { "id": "a", "text": "Unable to exist together" },
+            { "id": "b", "text": "Able to exist or work together" },
+            { "id": "c", "text": "Identical in every detail" },
+            { "id": "d", "text": "Outdated" }
+          ],
+          "correct_option_id": "b"
+        }
+      ]
+    }
+  ]
+}

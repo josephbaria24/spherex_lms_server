@@ -6,6 +6,10 @@ export const authRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many attempts. Please try again later." },
+  skip: (req) => {
+    const path = req.path.replace(/\/$/, "");
+    return (req.method === "GET" && path.endsWith("/me")) || path.endsWith("/logout");
+  },
 });
 
 export const paymentRequestRateLimiter = rateLimit({

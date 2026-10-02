@@ -1,6 +1,50 @@
 import { query, withTransaction } from "../config/db.js";
 import { HttpError } from "../utils/httpError.js";
 
+type ScormInteraction = {
+  id: string | null;
+  description: string | null;
+  type: string | null;
+  student_response: string | null;
+  result: string | null;
+  latency: string | null;
+};
+
+function toNullableString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function extractScormInteractions(cmi: unknown): ScormInteraction[] {
+  if (!cmi || typeof cmi !== "object" || Array.isArray(cmi)) return [];
+  const record = cmi as Record<string, unknown>;
+  const grouped = new Map<number, Partial<ScormInteraction>>();
+  const pattern = /^cmi\.interactions\.(\d+)\.(id|description|type|student_response|result|latency)$/;
+
+  for (const [key, value] of Object.entries(record)) {
+    const match = key.match(pattern);
+    if (!match) continue;
+    const index = Number(match[1]);
+    const field = match[2] as keyof ScormInteraction;
+    const next = grouped.get(index) ?? {};
+    next[field] = toNullableString(value);
+    grouped.set(index, next);
+  }
+
+  return [...grouped.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, value]) => ({
+      id: value.id ?? null,
+      description: value.description ?? null,
+      type: value.type ?? null,
+      student_response: value.student_response ?? null,
+      result: value.result ?? null,
+      latency: value.latency ?? null,
+    }))
+    .filter((item) => item.student_response || item.description || item.id);
+}
+
 export async function assertUserExists(userId: string) {
   const result = await query(
     `SELECT id, email, full_name, name, role, status, created_at FROM users WHERE id = $1`,
@@ -55,7 +99,7 @@ export async function getUserActivity(userId: string) {
     ),
     query(
       `SELECT sd.lesson_id, sd.course_id, l.title AS lesson_title, c.title AS course_title,
-              sd.lesson_status, sd.score_raw, sd.updated_at
+              sd.lesson_status, sd.score_raw, sd.suspend_data, sd.cmi, sd.updated_at
          FROM scorm_data sd
          JOIN lessons l ON l.id = sd.lesson_id
          JOIN courses c ON c.id = sd.course_id
@@ -190,6 +234,11 @@ export async function getUserActivity(userId: string) {
   ]);
 
   const completedCourses = enrollments.rows.filter((e) => e.completed).length;
+  const scormWithResponses = scormRecords.rows.map((row) => ({
+    ...row,
+    interactions: extractScormInteractions(row.cmi),
+    suspend_data: toNullableString(row.suspend_data),
+  }));
 
   return {
     user,
@@ -209,7 +258,7 @@ export async function getUserActivity(userId: string) {
     },
     enrollments: enrollments.rows,
     lesson_progress: lessonProgress.rows,
-    scorm_records: scormRecords.rows,
+    scorm_records: scormWithResponses,
     quiz_attempts: quizAttempts.rows,
     organizations: organizations.rows,
     teaching: teaching.rows,

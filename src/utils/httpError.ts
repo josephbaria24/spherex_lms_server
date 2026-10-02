@@ -24,6 +24,9 @@ export class HttpError extends Error {
   static conflict(message = "Conflict") {
     return new HttpError(409, message);
   }
+  static tooManyRequests(message = "Too many requests") {
+    return new HttpError(429, message);
+  }
   static paymentRequired(message = "Payment required", details?: unknown) {
     return new HttpError(402, message, details);
   }

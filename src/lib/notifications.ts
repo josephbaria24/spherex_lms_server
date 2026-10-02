@@ -82,11 +82,11 @@ export async function listCourseInstructorIds(
   courseId: string,
   client?: PoolClient,
 ): Promise<string[]> {
-  const result = await db(client).query<{ user_id: string }>(
-    `SELECT user_id FROM course_instructors WHERE course_id = $1`,
+  const result = await db(client).query<{ teacher_id: string }>(
+    `SELECT teacher_id FROM course_instructors WHERE course_id = $1`,
     [courseId],
   );
-  return result.rows.map((r) => r.user_id);
+  return result.rows.map((r) => r.teacher_id);
 }
 
 export async function listOrgAdminIds(
