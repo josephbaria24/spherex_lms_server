@@ -148,13 +148,11 @@ async function main() {
     name: "Petrosphere Incorporated",
     slug: "petrosphere",
     description:
-      "DOLE-recognized safety and compliance training for modern workplaces. Migrating from the Petrosphere eLearning Academy.",
-    website: "https://elearning.petrosphere.com.ph/",
+      "DOLE-recognized safety and compliance training for modern workplaces.",
     industry: "HSE & Safety Training",
     status: "active",
     teacherJoinCode: "PETRO-DEMO",
     studentJoinCode: "PETRO-STUDENT",
-    logo: "https://elearning.petrosphere.com.ph/wp-content/uploads/2020/10/ACLS-Course-1.png",
   });
 
   const tesdaId = await ensureOrganization({
