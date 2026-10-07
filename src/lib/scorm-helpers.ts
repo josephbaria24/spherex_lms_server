@@ -52,12 +52,23 @@ export async function saveScormCmi(
   const existing = await getScormData(userId, lessonId);
   const cmi: Record<string, string> = { ...(existing?.cmi ?? {}), ...updates };
 
-  const lessonStatus =
+  let lessonStatus =
     updates["cmi.core.lesson_status"] ??
     updates["cmi.completion_status"] ??
     cmi["cmi.core.lesson_status"] ??
     existing?.lesson_status ??
     "not attempted";
+
+  // A finished attempt must stay finished. iSpring/Storyline can send a later
+  // "incomplete" suspend after the learner has already reached the end screen.
+  if (
+    existing &&
+    isScormLessonComplete(existing.lesson_status) &&
+    !isScormLessonComplete(lessonStatus)
+  ) {
+    lessonStatus = existing.lesson_status;
+    cmi["cmi.core.lesson_status"] = existing.lesson_status;
+  }
 
   const scoreRaw = updates["cmi.core.score.raw"] ?? cmi["cmi.core.score.raw"] ?? existing?.score_raw ?? null;
   const lessonLocation =
