@@ -2,6 +2,7 @@ import type { PoolClient, QueryResultRow } from "pg";
 import { pool, query } from "../config/db.js";
 
 export type NotificationType =
+  | "payment.requested"
   | "payment.receipt_uploaded"
   | "payment.approved"
   | "payment.rejected"
@@ -128,6 +129,30 @@ export async function syncAdminReceiptNotifications(): Promise<void> {
       type: "payment.receipt_uploaded",
       title: "Payment receipt ready for review",
       body: `${pr.full_name} uploaded a receipt for "${pr.course_title}" (${pr.transaction_number}).`,
+      link: "/admin/payment-requests",
+      referenceId: pr.id,
+    });
+  }
+
+  const requested = await query<{
+    id: string;
+    full_name: string;
+    course_title: string;
+    transaction_number: string;
+  }>(
+    `SELECT pr.id, pr.full_name, pr.transaction_number, c.title AS course_title
+       FROM payment_requests pr
+       JOIN courses c ON c.id = pr.course_id
+      WHERE pr.status = 'pending_payment'
+      ORDER BY pr.created_at DESC
+      LIMIT 100`,
+  );
+
+  for (const pr of requested.rows) {
+    await notifyUsers(admins, {
+      type: "payment.requested",
+      title: "New course access request",
+      body: `${pr.full_name} requested access to "${pr.course_title}" (${pr.transaction_number}).`,
       link: "/admin/payment-requests",
       referenceId: pr.id,
     });

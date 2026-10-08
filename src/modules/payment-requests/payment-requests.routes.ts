@@ -61,7 +61,15 @@ const rejectSchema = z.object({
 });
 const listQuery = z.object({
   status: z
-    .enum(["pending_payment", "receipt_uploaded", "approved", "rejected", "expired", "all"])
+    .enum([
+      "open",
+      "pending_payment",
+      "receipt_uploaded",
+      "approved",
+      "rejected",
+      "expired",
+      "all",
+    ])
     .optional(),
 });
 
@@ -174,6 +182,15 @@ router.post(
         text: `New request for ${row.title} from ${pr.full_name} <${pr.email}> — ${formatPhp(pr.amount_cents)}`,
       });
     }
+
+    const adminIds = await listAdminUserIds();
+    await notifyUsers(adminIds, {
+      type: "payment.requested",
+      title: "New course access request",
+      body: `${pr.full_name} requested access to "${row.title}" (${pr.transaction_number}).`,
+      link: "/admin/payment-requests",
+      referenceId: pr.id,
+    });
 
     res.status(201).json({
       payment_request: {
@@ -299,18 +316,20 @@ router.get(
     const filters = listQuery.parse(req.query);
     const values: unknown[] = [];
     const where: string[] = [];
-    if (filters.status && filters.status !== "all") {
+    if (filters.status === "open") {
+      where.push(`pr.status IN ('pending_payment', 'receipt_uploaded')`);
+    } else if (filters.status && filters.status !== "all") {
       values.push(filters.status);
       where.push(`pr.status = $${values.length}`);
     }
 
     const result = await query(
-      `SELECT pr.*, c.title AS course_title,
+      `SELECT pr.*, COALESCE(c.title, 'Deleted course') AS course_title,
               EXISTS (
                 SELECT 1 FROM users u WHERE lower(u.email) = lower(pr.email)
               ) AS email_exists
          FROM payment_requests pr
-         JOIN courses c ON c.id = pr.course_id
+         LEFT JOIN courses c ON c.id = pr.course_id
          ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
          ORDER BY pr.created_at DESC
          LIMIT 200`,
