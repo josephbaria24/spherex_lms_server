@@ -33,6 +33,14 @@ export const LESSON_STARTED_CASE = `
     ELSE false
   END`;
 
+/** 100 when finished, 50 once started, otherwise 0. Matches course progress weighting. */
+export const LESSON_PROGRESS_PERCENT_CASE = `
+  CASE
+    WHEN (${LESSON_COMPLETED_CASE}) THEN 100
+    WHEN (${LESSON_STARTED_CASE}) THEN 50
+    ELSE 0
+  END::int`;
+
 /** Published lessons with per-learner completion (ordered). */
 export const LESSON_PROGRESS_SQL = `
   SELECT l.id,

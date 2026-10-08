@@ -5,6 +5,11 @@ import { query } from "../config/db.js";
 import { getUploadsRoot } from "./org-uploads.js";
 import { createNotification } from "./notifications.js";
 import { appUrl } from "./mailer.js";
+import {
+  certificateTemplateAbsolutePath,
+  type CertificateField,
+  type CertificateTemplateRecord,
+} from "./certificate-template.js";
 
 export function initCertificatePhotoUploadsDirectory(): string {
   const dir = join(getUploadsRoot(), "certificate-photos");
@@ -130,6 +135,7 @@ export async function issueCertificateIfNeeded(
 }
 
 type CertPdfData = {
+  course_id: string | null;
   serial_number: string | null;
   issued_at: Date;
   course_title: string | null;
@@ -141,6 +147,7 @@ export async function loadCertificatePdfData(
   certificateId: string,
 ): Promise<CertPdfData | null> {
   const result = await query<{
+    course_id: string | null;
     serial_number: string | null;
     issued_at: Date;
     course_title: string | null;
@@ -149,7 +156,7 @@ export async function loadCertificatePdfData(
     email: string;
     certificate_photo_path: string | null;
   }>(
-    `SELECT cert.serial_number, cert.issued_at, c.title AS course_title,
+    `SELECT cert.course_id, cert.serial_number, cert.issued_at, c.title AS course_title,
             u.full_name, u.name, u.email, u.certificate_photo_path
        FROM certificates cert
        JOIN users u ON u.id = cert.user_id
@@ -160,6 +167,7 @@ export async function loadCertificatePdfData(
   const row = result.rows[0];
   if (!row) return null;
   return {
+    course_id: row.course_id,
     serial_number: row.serial_number,
     issued_at: row.issued_at,
     course_title: row.course_title,
@@ -168,7 +176,128 @@ export async function loadCertificatePdfData(
   };
 }
 
-export async function buildCertificatePdfBuffer(data: CertPdfData): Promise<Buffer> {
+function pageSpec(pageSize: string): { size: "A4" | "LETTER"; layout: "landscape" | "portrait" } {
+  switch (pageSize) {
+    case "a4-portrait":
+      return { size: "A4", layout: "portrait" };
+    case "letter-landscape":
+      return { size: "LETTER", layout: "landscape" };
+    case "letter-portrait":
+      return { size: "LETTER", layout: "portrait" };
+    default:
+      return { size: "A4", layout: "landscape" };
+  }
+}
+
+function pdfFontName(field: CertificateField): string {
+  const times = field.fontFamily === "Times";
+  if (field.fontStyle === "italic" && field.fontWeight === "bold") {
+    return times ? "Times-BoldItalic" : "Helvetica-BoldOblique";
+  }
+  if (field.fontStyle === "italic") return times ? "Times-Italic" : "Helvetica-Oblique";
+  if (field.fontWeight === "bold") return times ? "Times-Bold" : "Helvetica-Bold";
+  return times ? "Times-Roman" : "Helvetica";
+}
+
+function isPictureValue(value: string): boolean {
+  const token = value.trim();
+  return token === "{{learner_picture}}" || token === "{{trainee_picture}}";
+}
+
+function fillCertificateText(value: string, data: CertPdfData): string {
+  const issued = data.issued_at.toLocaleDateString("en-PH", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const serial = data.serial_number ?? "";
+  const title = data.course_title ?? "";
+  return value
+    .replaceAll("{{learner_name}}", data.learner_name)
+    .replaceAll("{{trainee_name}}", data.learner_name)
+    .replaceAll("{{course_title}}", title)
+    .replaceAll("{{course_name}}", title)
+    .replaceAll("{{completion_date}}", issued)
+    .replaceAll("{{given_this}}", issued)
+    .replaceAll("{{certificate_number}}", serial);
+}
+
+function renderTemplatePdf(
+  data: CertPdfData,
+  template: CertificateTemplateRecord,
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const spec = pageSpec(template.page_size);
+    const doc = new PDFDocument({ size: spec.size, layout: spec.layout, margin: 0 });
+    const chunks: Buffer[] = [];
+    doc.on("data", (c) => chunks.push(c));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    const pageWidth = doc.page.width;
+    const pageHeight = doc.page.height;
+    const scaleX = pageWidth / Math.max(template.canvas_width, 1);
+    const scaleY = pageHeight / Math.max(template.canvas_height, 1);
+
+    if (template.image_path) {
+      const abs = certificateTemplateAbsolutePath(template.image_path);
+      if (abs) {
+        try {
+          doc.image(abs, 0, 0, { width: pageWidth, height: pageHeight });
+        } catch {
+          // Missing artwork still prints the text fields.
+        }
+      }
+    }
+
+    for (const field of template.fields) {
+      const x = field.x * scaleX;
+      const y = field.y * scaleY;
+      if (isPictureValue(field.value)) {
+        const boxW = (field.boxWidth ?? 140) * scaleX;
+        const boxH = (field.boxHeight ?? 140) * scaleY;
+        if (data.photo_path) {
+          const abs = certificatePhotoAbsolutePath(data.photo_path);
+          if (abs) {
+            try {
+              doc.image(abs, x, y, {
+                fit: [boxW, boxH],
+                align: "center",
+                valign: "center",
+              });
+            } catch {
+              // skip missing photo
+            }
+          }
+        }
+        continue;
+      }
+
+      const text = fillCertificateText(field.value, data);
+      if (!text.trim()) continue;
+      doc.font(pdfFontName(field)).fontSize(field.fontSize * scaleY).fillColor(field.color);
+      const textWidth = doc.widthOfString(text);
+      let drawX = x;
+      if (field.align === "center") drawX = x - textWidth / 2;
+      if (field.align === "right") drawX = x - textWidth;
+      doc.text(text, drawX, y, { lineBreak: false });
+    }
+
+    doc.end();
+  });
+}
+
+export async function buildCertificatePdfBuffer(
+  data: CertPdfData,
+  template?: CertificateTemplateRecord | null,
+): Promise<Buffer> {
+  if (template && (template.image_path || template.fields.length > 0)) {
+    return renderTemplatePdf(data, template);
+  }
+  return buildDefaultCertificatePdf(data);
+}
+
+function buildDefaultCertificatePdf(data: CertPdfData): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: "LETTER",

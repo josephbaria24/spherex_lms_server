@@ -614,3 +614,23 @@ CREATE INDEX IF NOT EXISTS notifications_user_unread_idx
 CREATE UNIQUE INDEX IF NOT EXISTS notifications_dedupe_uidx
   ON notifications (user_id, type, reference_id)
   WHERE reference_id IS NOT NULL;
+
+-- ---------------------------------------------------------------------------
+-- certificate_templates (per-course layout for the completion PDF)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS certificate_templates (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  course_id     UUID NOT NULL UNIQUE REFERENCES courses(id) ON DELETE CASCADE,
+  image_path    TEXT,
+  fields        JSONB NOT NULL DEFAULT '[]'::jsonb,
+  page_size     TEXT NOT NULL DEFAULT 'a4-landscape',
+  canvas_width  INTEGER NOT NULL DEFAULT 842,
+  canvas_height INTEGER NOT NULL DEFAULT 595,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+DROP TRIGGER IF EXISTS certificate_templates_set_updated_at ON certificate_templates;
+CREATE TRIGGER certificate_templates_set_updated_at
+  BEFORE UPDATE ON certificate_templates
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();

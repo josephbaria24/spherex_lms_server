@@ -26,9 +26,10 @@ export async function getLearnAchievements(userId: string) {
       serial_number: string | null;
       issued_at: Date;
       course_title: string | null;
+      course_image: string | null;
     }>(
       `SELECT cert.id, cert.course_id, cert.certificate_url, cert.serial_number, cert.issued_at,
-              c.title AS course_title
+              c.title AS course_title, c.image AS course_image
          FROM certificates cert
          LEFT JOIN courses c ON c.id = cert.course_id
         WHERE cert.user_id = $1
@@ -82,6 +83,7 @@ export async function getLearnAchievements(userId: string) {
       id: row.id,
       course_id: row.course_id,
       course_title: row.course_title,
+      course_image: row.course_image,
       certificate_url: row.certificate_url,
       serial_number: row.serial_number,
       pdf_url: `/api/lms/certificates/${row.id}/pdf`,

@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import multer from "multer";
 import { randomUUID } from "node:crypto";
-import { extname } from "node:path";
+import { extname, join } from "node:path";
 import { query } from "../../config/db.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/httpError.js";
@@ -16,6 +16,17 @@ import {
   issueCertificateIfNeeded,
   loadCertificatePdfData,
 } from "../../lib/certificates.js";
+import {
+  certificateTemplateDir,
+  certificateTemplatePublicPath,
+  clearCertificateTemplateImages,
+  loadCertificateTemplate,
+  saveCertificateTemplate,
+  saveCertificateTemplateSchema,
+  setCertificateTemplateImage,
+} from "../../lib/certificate-template.js";
+import { extensionForMime, ORG_LOGO_MIME_TYPES } from "../../lib/org-uploads.js";
+import fs from "node:fs";
 
 const createSchema = z.object({
   user_id: z.string().uuid(),
@@ -24,6 +35,7 @@ const createSchema = z.object({
 });
 
 const idParam = z.object({ id: z.string().uuid() });
+const courseIdParam = z.object({ courseId: z.string().uuid() });
 const listQuery = z.object({
   user_id: z.string().uuid().optional(),
 });
@@ -112,6 +124,86 @@ router.get(
   }),
 );
 
+const templateImageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!ORG_LOGO_MIME_TYPES.has(file.mimetype) || file.mimetype === "image/svg+xml" || file.mimetype === "image/gif") {
+      cb(new Error("Upload a PNG, JPG, or WebP certificate background"));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+// GET /certificates/templates/:courseId
+router.get(
+  "/templates/:courseId",
+  requireAuth,
+  requireAdmin,
+  validate(courseIdParam, "params"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { courseId } = courseIdParam.parse(req.params);
+    const course = await query<{ id: string; title: string }>(
+      `SELECT id, title FROM courses WHERE id = $1`,
+      [courseId],
+    );
+    if (!course.rows[0]) throw HttpError.notFound("Course not found");
+    const template = await loadCertificateTemplate(courseId);
+    res.json({ course: course.rows[0], template });
+  }),
+);
+
+// PUT /certificates/templates/:courseId
+router.put(
+  "/templates/:courseId",
+  requireAuth,
+  requireAdmin,
+  validate(courseIdParam, "params"),
+  validate(saveCertificateTemplateSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { courseId } = courseIdParam.parse(req.params);
+    const course = await query(`SELECT id FROM courses WHERE id = $1`, [courseId]);
+    if (!course.rows[0]) throw HttpError.notFound("Course not found");
+    const body = saveCertificateTemplateSchema.parse(req.body);
+    const template = await saveCertificateTemplate(courseId, body);
+    res.json({ template });
+  }),
+);
+
+// POST /certificates/templates/:courseId/image
+router.post(
+  "/templates/:courseId/image",
+  requireAuth,
+  requireAdmin,
+  validate(courseIdParam, "params"),
+  (req: Request, res: Response, next) => {
+    templateImageUpload.single("image")(req, res, (err: unknown) => {
+      if (err) {
+        next(HttpError.badRequest(err instanceof Error ? err.message : "Upload failed"));
+        return;
+      }
+      next();
+    });
+  },
+  asyncHandler(async (req: Request, res: Response) => {
+    const { courseId } = courseIdParam.parse(req.params);
+    const course = await query(`SELECT id FROM courses WHERE id = $1`, [courseId]);
+    if (!course.rows[0]) throw HttpError.notFound("Course not found");
+    const file = req.file;
+    if (!file) throw HttpError.badRequest("Choose a background image");
+    const ext = extensionForMime(file.mimetype);
+    const filename = `background${ext}`;
+    clearCertificateTemplateImages(courseId);
+    const dir = certificateTemplateDir(courseId);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(join(dir, filename), file.buffer);
+    const imagePath = certificateTemplatePublicPath(courseId, filename);
+    await setCertificateTemplateImage(courseId, imagePath);
+    res.json({ image_path: imagePath });
+  }),
+);
+
 // GET /certificates/:id/pdf — download PDF
 router.get(
   "/:id/pdf",
@@ -131,8 +223,9 @@ router.get(
 
     const data = await loadCertificatePdfData(id);
     if (!data) throw HttpError.notFound("Certificate not found");
+    const template = data.course_id ? await loadCertificateTemplate(data.course_id) : null;
 
-    const pdf = await buildCertificatePdfBuffer(data);
+    const pdf = await buildCertificatePdfBuffer(data, template);
     const filename = `${data.serial_number ?? id}.pdf`;
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);

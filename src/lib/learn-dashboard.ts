@@ -69,12 +69,13 @@ export async function getLearnDashboard(userId: string) {
       updated_at: Date
       course_title: string
       course_duration: string | null
+      course_image: string | null
       lessons_total: number
       lessons_completed: number
     }>(
       `SELECT e.id, e.course_id, e.progress_percent, e.completed, e.completed_at,
               e.created_at, e.updated_at,
-              c.title AS course_title, c.duration AS course_duration,
+              c.title AS course_title, c.duration AS course_duration, c.image AS course_image,
               (SELECT COUNT(*)::int FROM lessons l
                 WHERE l.course_id = e.course_id AND l.status = 'published') AS lessons_total,
               (SELECT COUNT(*)::int FROM lesson_progress lp
@@ -287,6 +288,7 @@ export async function getLearnDashboard(userId: string) {
         id: e.course_id,
         title: e.course_title,
         duration: e.course_duration,
+        image: e.course_image,
       },
     })),
     knowledge_timeline: knowledgeTimeline,

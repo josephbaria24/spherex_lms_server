@@ -11,6 +11,7 @@ import {
   applyLessonLocks,
   assertLessonUnlocked,
   LESSON_COMPLETED_CASE,
+  LESSON_PROGRESS_PERCENT_CASE,
   LESSON_STARTED_CASE,
 } from "../../lib/lesson-access.js";
 import {
@@ -25,6 +26,7 @@ import {
   saveScormCmi,
   scormDataToCmiDefaults,
 } from "../../lib/scorm-helpers.js";
+import { cmiUpdatesFromXapiStatements } from "../../lib/xapi-interactions.js";
 import { getLearnDashboard } from "../../lib/learn-dashboard.js";
 import { getLearnAchievements } from "../../lib/learn-achievements.js";
 
@@ -92,7 +94,8 @@ router.get(
               l.parent_lesson_id,
               q.title AS quiz_title,
               ${LESSON_COMPLETED_CASE} AS completed,
-              ${LESSON_STARTED_CASE} AS started
+              ${LESSON_STARTED_CASE} AS started,
+              ${LESSON_PROGRESS_PERCENT_CASE} AS progress
          FROM lessons l
          LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.user_id = $2
          LEFT JOIN scorm_data sd ON sd.lesson_id = l.id AND sd.user_id = $2
@@ -112,6 +115,7 @@ router.get(
       status: string;
       completed: boolean;
       started: boolean;
+      progress: number;
     };
 
     const lessonRows = access.preview
@@ -119,6 +123,7 @@ router.get(
           ...(l as OutlineLessonRow),
           completed: false,
           started: false,
+          progress: 0,
           locked: false,
         }))
       : applyLessonLocks(lessons.rows as OutlineLessonRow[], true);
@@ -343,6 +348,103 @@ router.post(
       lesson_completed: result.completed,
       progress: result.progress,
     });
+  }),
+);
+
+function xapiQueryValue(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value) && typeof value[0] === "string") return value[0];
+  return "";
+}
+
+async function assertXapiLesson(req: Request, courseId: string, lessonId: string) {
+  const access = await assertLearnAccess(req.user!.sub, courseId, req.user!.role);
+  rejectPreviewWrites(access);
+  await assertLessonUnlocked(req.user!.sub, courseId, lessonId, access.preview);
+  const lesson = await query(
+    `SELECT id FROM lessons
+      WHERE id = $1 AND course_id = $2 AND status = 'published' AND content_type = 'articulate'`,
+    [lessonId, courseId],
+  );
+  if (!lesson.rows[0]) throw HttpError.notFound("Articulate lesson not found");
+}
+
+// iSpring Tin Can packages POST quiz statements here. The launch URL points endpoint at this prefix.
+router.post(
+  "/courses/:courseId/lessons/:lessonId/xapi/statements",
+  validate(lessonParams, "params"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { courseId, lessonId } = lessonParams.parse(req.params);
+    await assertXapiLesson(req, courseId, lessonId);
+    const existing = await getScormData(req.user!.sub, lessonId);
+    const updates = cmiUpdatesFromXapiStatements(existing?.cmi ?? {}, req.body);
+    if (Object.keys(updates).length > 0) {
+      await saveScormCmi(req.user!.sub, lessonId, courseId, updates);
+    }
+    res.status(204).end();
+  }),
+);
+
+router.put(
+  "/courses/:courseId/lessons/:lessonId/xapi/statements",
+  validate(lessonParams, "params"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { courseId, lessonId } = lessonParams.parse(req.params);
+    await assertXapiLesson(req, courseId, lessonId);
+    const existing = await getScormData(req.user!.sub, lessonId);
+    const updates = cmiUpdatesFromXapiStatements(existing?.cmi ?? {}, req.body);
+    if (Object.keys(updates).length > 0) {
+      await saveScormCmi(req.user!.sub, lessonId, courseId, updates);
+    }
+    res.status(204).end();
+  }),
+);
+
+router.get(
+  "/courses/:courseId/lessons/:lessonId/xapi/statements",
+  validate(lessonParams, "params"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { courseId, lessonId } = lessonParams.parse(req.params);
+    await assertXapiLesson(req, courseId, lessonId);
+    res.json({ statements: [] });
+  }),
+);
+
+router.put(
+  "/courses/:courseId/lessons/:lessonId/xapi/activities/state",
+  validate(lessonParams, "params"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { courseId, lessonId } = lessonParams.parse(req.params);
+    await assertXapiLesson(req, courseId, lessonId);
+    const stateId = xapiQueryValue(req.query.stateId);
+    if (stateId === "suspend_data" && !Array.isArray(req.body) && req.body != null) {
+      const raw = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+      if (raw && raw !== "[1]") {
+        await saveScormCmi(req.user!.sub, lessonId, courseId, { "cmi.suspend_data": raw });
+      }
+    }
+    res.status(204).end();
+  }),
+);
+
+router.get(
+  "/courses/:courseId/lessons/:lessonId/xapi/activities/state",
+  validate(lessonParams, "params"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { courseId, lessonId } = lessonParams.parse(req.params);
+    await assertXapiLesson(req, courseId, lessonId);
+    const stateId = xapiQueryValue(req.query.stateId);
+    if (stateId !== "suspend_data") {
+      res.status(204).end();
+      return;
+    }
+    const existing = await getScormData(req.user!.sub, lessonId);
+    const raw = existing?.suspend_data?.trim() || existing?.cmi?.["cmi.suspend_data"]?.trim() || "";
+    if (!raw) {
+      res.status(204).end();
+      return;
+    }
+    res.type("application/json").send(raw);
   }),
 );
 

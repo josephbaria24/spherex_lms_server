@@ -1,5 +1,6 @@
 import { query, withTransaction } from "../config/db.js";
 import { HttpError } from "../utils/httpError.js";
+import { meshNameFromSuspendData } from "./storyline-resume.js";
 
 type ScormInteraction = {
   id: string | null;
@@ -88,7 +89,20 @@ export async function getUserActivity(userId: string) {
     ),
     query(
       `SELECT lp.id, lp.lesson_id, lp.course_id, l.title AS lesson_title, c.title AS course_title,
-              lp.completed, lp.completed_at, lp.updated_at
+              lp.completed, lp.completed_at, lp.updated_at,
+              (
+                SELECT ranked.lesson_number
+                FROM (
+                  SELECT id, ROW_NUMBER() OVER (ORDER BY sort_order, created_at)::int AS lesson_number
+                  FROM lessons
+                  WHERE course_id = l.course_id AND status = 'published'
+                ) ranked
+                WHERE ranked.id = l.id
+              ) AS lesson_number,
+              (
+                SELECT COUNT(*)::int FROM lessons
+                WHERE course_id = l.course_id AND status = 'published'
+              ) AS lessons_total
          FROM lesson_progress lp
          JOIN lessons l ON l.id = lp.lesson_id
          JOIN courses c ON c.id = lp.course_id
@@ -99,7 +113,20 @@ export async function getUserActivity(userId: string) {
     ),
     query(
       `SELECT sd.lesson_id, sd.course_id, l.title AS lesson_title, c.title AS course_title,
-              sd.lesson_status, sd.score_raw, sd.suspend_data, sd.cmi, sd.updated_at
+              sd.lesson_status, sd.score_raw, sd.suspend_data, sd.cmi, sd.updated_at,
+              (
+                SELECT ranked.lesson_number
+                FROM (
+                  SELECT id, ROW_NUMBER() OVER (ORDER BY sort_order, created_at)::int AS lesson_number
+                  FROM lessons
+                  WHERE course_id = l.course_id AND status = 'published'
+                ) ranked
+                WHERE ranked.id = l.id
+              ) AS lesson_number,
+              (
+                SELECT COUNT(*)::int FROM lessons
+                WHERE course_id = l.course_id AND status = 'published'
+              ) AS lessons_total
          FROM scorm_data sd
          JOIN lessons l ON l.id = sd.lesson_id
          JOIN courses c ON c.id = sd.course_id
@@ -234,11 +261,30 @@ export async function getUserActivity(userId: string) {
   ]);
 
   const completedCourses = enrollments.rows.filter((e) => e.completed).length;
-  const scormWithResponses = scormRecords.rows.map((row) => ({
-    ...row,
-    interactions: extractScormInteractions(row.cmi),
-    suspend_data: toNullableString(row.suspend_data),
-  }));
+  const scormWithResponses = scormRecords.rows.map((row) => {
+    const interactions = extractScormInteractions(row.cmi);
+    const suspendData = toNullableString(row.suspend_data);
+    const meshName = meshNameFromSuspendData(
+      suspendData,
+      String(row.lesson_title ?? ""),
+      String(row.course_title ?? ""),
+    );
+    if (meshName) {
+      interactions.push({
+        id: "mesh-name",
+        description: "Enter your name",
+        type: "fill-in",
+        student_response: meshName,
+        result: null,
+        latency: null,
+      });
+    }
+    return {
+      ...row,
+      interactions,
+      suspend_data: suspendData,
+    };
+  });
 
   return {
     user,

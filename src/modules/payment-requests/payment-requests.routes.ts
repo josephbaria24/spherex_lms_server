@@ -59,6 +59,9 @@ const idParam = z.object({ id: z.string().uuid() });
 const rejectSchema = z.object({
   admin_note: z.string().max(500).optional(),
 });
+const approveSchema = z.object({
+  without_receipt: z.boolean().optional(),
+});
 const listQuery = z.object({
   status: z
     .enum([
@@ -347,6 +350,7 @@ router.post(
   validate(idParam, "params"),
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = idParam.parse(req.params);
+    const { without_receipt } = approveSchema.parse(req.body ?? {});
 
     const existing = await query<PaymentRequestRow>(
       `SELECT pr.*, c.title AS course_title
@@ -363,7 +367,7 @@ router.post(
     if (pr.status === "rejected") {
       throw HttpError.badRequest("Cannot approve a rejected request");
     }
-    if (!pr.receipt_path) {
+    if (!pr.receipt_path && !without_receipt) {
       throw HttpError.badRequest("Wait for the buyer to upload a receipt before approving");
     }
 
