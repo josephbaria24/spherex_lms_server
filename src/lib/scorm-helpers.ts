@@ -6,6 +6,7 @@ import {
 } from "./quiz-helpers.js";
 
 const COMPLETED_STATUSES = new Set(["completed", "passed"]);
+const FAILED_STATUSES = new Set(["failed"]);
 
 export type ScormDataRow = {
   user_id: string;
@@ -20,6 +21,10 @@ export type ScormDataRow = {
 
 export function isScormLessonComplete(status: string): boolean {
   return COMPLETED_STATUSES.has(status.toLowerCase());
+}
+
+function isScormLessonFailed(status: string): boolean {
+  return FAILED_STATUSES.has(status.toLowerCase());
 }
 
 export async function getScormData(
@@ -61,13 +66,15 @@ export async function saveScormCmi(
 
   // A finished attempt must stay finished. iSpring/Storyline can send a later
   // "incomplete" suspend after the learner has already reached the end screen.
-  if (
-    existing &&
-    isScormLessonComplete(existing.lesson_status) &&
-    !isScormLessonComplete(lessonStatus)
-  ) {
-    lessonStatus = existing.lesson_status;
-    cmi["cmi.core.lesson_status"] = existing.lesson_status;
+  // A failed attempt stays failed until they pass, so Retake remains available.
+  if (existing && !isScormLessonComplete(lessonStatus)) {
+    if (isScormLessonComplete(existing.lesson_status)) {
+      lessonStatus = existing.lesson_status;
+      cmi["cmi.core.lesson_status"] = existing.lesson_status;
+    } else if (isScormLessonFailed(existing.lesson_status) && !isScormLessonFailed(lessonStatus)) {
+      lessonStatus = existing.lesson_status;
+      cmi["cmi.core.lesson_status"] = existing.lesson_status;
+    }
   }
 
   const scoreRaw = updates["cmi.core.score.raw"] ?? cmi["cmi.core.score.raw"] ?? existing?.score_raw ?? null;
