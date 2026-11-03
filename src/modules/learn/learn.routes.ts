@@ -118,15 +118,16 @@ router.get(
       progress: number;
     };
 
-    const lessonRows = access.preview
-      ? lessons.rows.map((l) => ({
-          ...(l as OutlineLessonRow),
+    const requireSequential = Boolean(course.require_sequential_lessons);
+    const outlineLessons = access.preview
+      ? (lessons.rows as OutlineLessonRow[]).map((l) => ({
+          ...l,
           completed: false,
           started: false,
           progress: 0,
-          locked: false,
         }))
-      : applyLessonLocks(lessons.rows as OutlineLessonRow[], true);
+      : (lessons.rows as OutlineLessonRow[]);
+    const lessonRows = applyLessonLocks(outlineLessons, requireSequential);
 
     const progress = access.preview
       ? 0

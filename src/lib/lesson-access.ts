@@ -86,10 +86,14 @@ export async function assertLessonUnlocked(
   lessonId: string,
   preview: boolean,
 ): Promise<void> {
-  if (preview) return;
+  const requireSequential = await getCourseRequiresSequential(courseId);
+  if (!requireSequential) return;
 
   const lessons = await query<LessonAccessRow>(LESSON_PROGRESS_SQL, [courseId, userId]);
-  const withLocks = applyLessonLocks(lessons.rows, true);
+  const rows = preview
+    ? lessons.rows.map((lesson) => ({ ...lesson, completed: false }))
+    : lessons.rows;
+  const withLocks = applyLessonLocks(rows, true);
   const target = withLocks.find((lesson) => lesson.id === lessonId);
   if (!target) throw HttpError.notFound("Lesson not found");
   if (target.locked) {
