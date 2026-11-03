@@ -112,7 +112,7 @@ async function main() {
   await ensureUser({
     email: "admin@spherex.local",
     password: "Admin123!",
-    fullName: "SphereX Admin",
+    fullName: "PetroCademia Admin",
     role: "admin",
   });
 
@@ -159,7 +159,7 @@ async function main() {
     name: "TESDA",
     slug: "tesda",
     description:
-      "Technical Skills Development Authority — national certification and skills programs on SphereX (coming soon).",
+      "Technical Skills Development Authority - national certification and skills programs on PetroCademia (coming soon).",
     industry: "Technical Education",
     status: "pending",
     teacherJoinCode: "TESDA-DEMO",
@@ -175,7 +175,7 @@ async function main() {
     [petrosphereId],
   );
   // eslint-disable-next-line no-console
-  console.log("[seed] organization members for Petrosphere (newteacher@ has no org — use PETRO-DEMO to join)");
+  console.log("[seed] organization members for Petrosphere (newteacher@ has no org ? use PETRO-DEMO to join)");
 
   const sampleCourses = [
     {

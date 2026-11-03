@@ -45,7 +45,7 @@ export const env = {
     port: parseInt(optional(process.env.SMTP_PORT, "587"), 10),
     user: process.env.SMTP_USER ?? "",
     pass: process.env.SMTP_PASS ?? "",
-    fromName: optional(process.env.SMTP_FROM_NAME, "SphereX LMS"),
+    fromName: optional(process.env.SMTP_FROM_NAME, "PetroCademia"),
     fromEmail: process.env.SMTP_FROM_EMAIL ?? "",
   },
 

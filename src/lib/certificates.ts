@@ -328,7 +328,7 @@ function buildDefaultCertificatePdf(data: CertPdfData): Promise<Buffer> {
       .fillColor("#1a1f2e")
       .fontSize(14)
       .font("Helvetica")
-      .text("SPHEREX LMS", 60, 64, { align: "center", width: pageWidth - 120 });
+      .text("PETROCADEMIA", 60, 64, { align: "center", width: pageWidth - 120 });
 
     doc
       .fillColor("#e85d4a")

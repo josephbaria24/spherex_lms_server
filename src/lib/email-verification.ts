@@ -73,14 +73,14 @@ export async function issueVerificationCode(
   const greeting = user.full_name ?? user.name ?? "there";
   const mail = await sendMail({
     to: user.email,
-    subject: "Your SphereX verification code",
+    subject: "Your PetroCademia verification code",
     text: [
       `Hi ${greeting},`,
       ``,
       `Your verification code is: ${code}`,
       `It expires in 10 minutes.`,
       ``,
-      `If you did not create a SphereX account, you can ignore this email.`,
+      `If you did not create a PetroCademia account, you can ignore this email.`,
       ``,
       `— ${env.smtp.fromName}`,
     ].join("\n"),

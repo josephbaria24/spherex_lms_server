@@ -281,7 +281,7 @@ router.post(
       const resetUrl = appUrl(`/reset-password?token=${rawToken}`);
       await sendMail({
         to: user.email,
-        subject: "Reset your SphereX password",
+        subject: "Reset your PetroCademia password",
         text: [
           `Hi ${user.full_name ?? user.name ?? "there"},`,
           ``,

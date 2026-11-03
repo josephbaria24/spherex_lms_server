@@ -450,7 +450,7 @@ router.post(
           `Hi ${pr.full_name},`,
           ``,
           `Your payment for "${pr.course_title}" (txn ${pr.transaction_number}) was approved.`,
-          `Sign in with your existing SphereX account: ${loginUrl}`,
+          `Sign in with your existing PetroCademia account: ${loginUrl}`,
           ``,
           `— ${env.smtp.fromName}`,
         ].join("\n"),
