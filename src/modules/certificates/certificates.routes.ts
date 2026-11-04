@@ -16,6 +16,7 @@ import {
   issueCertificateIfNeeded,
   loadCertificatePdfData,
 } from "../../lib/certificates.js";
+import { lookupCertificateBySerial } from "../../lib/ielts-certificate.js";
 import {
   certificateTemplateDir,
   certificateTemplatePublicPath,
@@ -62,6 +63,27 @@ const photoUpload = multer({
 });
 
 const router = Router();
+
+const serialParam = z.object({
+  serial: z
+    .string()
+    .trim()
+    .min(6)
+    .max(40)
+    .regex(/^[A-Za-z0-9-]+$/),
+});
+
+// GET /certificates/verify/:serial — public lookup
+router.get(
+  "/verify/:serial",
+  validate(serialParam, "params"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { serial } = serialParam.parse(req.params);
+    const certificate = await lookupCertificateBySerial(serial);
+    if (!certificate) throw HttpError.notFound("No certificate matches that serial number.");
+    res.json({ certificate });
+  }),
+);
 
 // GET /certificates  (?user_id=)
 router.get(

@@ -18,6 +18,7 @@ import enrollmentRoutes from "./modules/enrollments/enrollments.routes.js";
 import materialRoutes from "./modules/materials/materials.routes.js";
 import reviewerRoutes from "./modules/reviewers/reviewers.routes.js";
 import { createReviewerQuizRouter } from "./modules/reviewers/reviewer-quizzes.routes.js";
+import ieltsCertificateRoutes from "./modules/reviewers/ielts-certificate.routes.js";
 import { createReviewerGroupRouter } from "./modules/reviewers/reviewer-groups.routes.js";
 import certificateRoutes from "./modules/certificates/certificates.routes.js";
 import trainingRoutes from "./modules/training/training.routes.js";
@@ -86,6 +87,7 @@ export function createApp(): Express {
   app.use("/api/courses", courseRoutes);
   app.use("/api/enrollments", enrollmentRoutes);
   app.use("/api/materials", materialRoutes);
+  app.use("/api/reviewers", ieltsCertificateRoutes);
   app.use("/api/reviewers", createReviewerGroupRouter());
   app.use("/api/reviewers", createReviewerQuizRouter());
   app.use("/api/reviewers", reviewerRoutes);
