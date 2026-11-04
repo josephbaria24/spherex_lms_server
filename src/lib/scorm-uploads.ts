@@ -23,6 +23,17 @@ export function clearScormPackage(courseId: string, lessonId: string): void {
   }
 }
 
+/** Zip the package currently stored on disk, including any edits made after upload. */
+export function zipCurrentScormPackage(courseId: string, lessonId: string): Buffer {
+  const dir = getScormPackageDir(courseId, lessonId);
+  if (!fs.existsSync(dir)) {
+    throw new Error("SCORM package files are missing");
+  }
+  const zip = new AdmZip();
+  zip.addLocalFolder(dir);
+  return zip.toBuffer();
+}
+
 function findLaunchFile(rootDir: string, candidates = LAUNCH_CANDIDATES_SCORM): string | null {
   for (const name of candidates) {
     const full = path.join(rootDir, name);

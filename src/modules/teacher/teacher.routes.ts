@@ -15,7 +15,7 @@ import { getQuizByLessonId, upsertLessonQuiz } from "../../lib/quiz-helpers.js";
 import { lessonVideoPublicPath } from "../../lib/lesson-uploads.js";
 import { handleLessonVideoUpload } from "../../middleware/lesson-video-upload.js";
 import { handleScormZipUpload } from "../../middleware/scorm-upload.js";
-import { extractScormZip, clearScormPackage } from "../../lib/scorm-uploads.js";
+import { extractScormZip, clearScormPackage, zipCurrentScormPackage } from "../../lib/scorm-uploads.js";
 import fs from "node:fs";
 
 const router = Router();
@@ -441,6 +441,51 @@ orgRouter.post(
         next(e);
       }
     });
+  }),
+);
+
+function scormDownloadName(title: string): string {
+  const base = title.replace(/[^\w\s.-]+/g, "").trim().replace(/\s+/g, "-") || "scorm-package";
+  return `${base}.zip`;
+}
+
+// GET /teacher/:orgId/lessons/:id/scorm — download the package currently on disk
+orgRouter.get(
+  "/lessons/:id/scorm",
+  validate(idParam, "params"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const orgId = getOrgId(req);
+    const { id } = idParam.parse(req.params);
+    const existing = await query<{
+      course_id: string;
+      title: string;
+      content_type: string;
+      articulate_url: string | null;
+    }>(
+      "SELECT course_id, title, content_type, articulate_url FROM lessons WHERE id = $1",
+      [id],
+    );
+    const lesson = existing.rows[0];
+    if (!lesson) throw HttpError.notFound("Lesson not found");
+    await assertTeacherCourseAccess(req, lesson.course_id, orgId);
+    const uploaded = lesson.articulate_url?.includes("/uploads/scorm/");
+    if (lesson.content_type !== "articulate" || !uploaded) {
+      throw HttpError.badRequest("This lesson has no uploaded SCORM package");
+    }
+
+    let zip: Buffer;
+    try {
+      zip = zipCurrentScormPackage(lesson.course_id, id);
+    } catch {
+      throw HttpError.notFound("SCORM package files are missing");
+    }
+
+    const filename = scormDownloadName(lesson.title);
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Cache-Control", "no-transform");
+    res.setHeader("Content-Length", String(zip.length));
+    res.send(zip);
   }),
 );
 
