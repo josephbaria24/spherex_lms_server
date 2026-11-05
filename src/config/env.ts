@@ -55,6 +55,10 @@ export const env = {
     "Please transfer the amount via bank deposit or GCash, then upload your receipt using the link in this email.",
   ),
   adminNotifyEmail: process.env.ADMIN_NOTIFY_EMAIL ?? "",
+  /** Learner lesson concerns are emailed here. */
+  supportEmail: optional(process.env.SUPPORT_EMAIL, "sales@petrosphere.com.ph"),
+  /** Shared code learners enter after requesting IELTS access. */
+  ieltsAccessCode: (process.env.IELTS_ACCESS_CODE ?? "").trim().replace(/\\+$/, ""),
 } as const;
 
 export const isProd = env.nodeEnv === "production";

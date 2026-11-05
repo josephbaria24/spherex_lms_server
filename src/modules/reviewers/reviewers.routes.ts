@@ -5,6 +5,7 @@ import { env } from "../../config/env.js";
 import { query } from "../../config/db.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/httpError.js";
+import { userHasIeltsAccess } from "../../lib/ielts-access.js";
 import { requireAuth, requireAdmin } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
 
@@ -100,16 +101,29 @@ router.post(
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = idParam.parse(req.params);
     const result = await query(
-      `SELECT id, file_url, external_url, is_published
+      `SELECT id, file_url, external_url, is_published, exam_type
          FROM reviewer_materials WHERE id = $1`,
       [id],
     );
     const material = result.rows[0] as
-      | { id: string; file_url: string; external_url: string | null; is_published: boolean }
+      | {
+          id: string;
+          file_url: string;
+          external_url: string | null;
+          is_published: boolean;
+          exam_type: string;
+        }
       | undefined;
 
     if (!material || !material.is_published) {
       throw HttpError.notFound("Reviewer material not found");
+    }
+
+    if (material.exam_type === "IELTS") {
+      const allowed = await userHasIeltsAccess(req.user?.sub, req.user?.role);
+      if (!allowed) {
+        throw HttpError.forbidden("Request IELTS access or enter an access code to open this material");
+      }
     }
 
     if (material.external_url && !material.file_url) {

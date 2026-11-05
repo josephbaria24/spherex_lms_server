@@ -29,6 +29,8 @@ import {
 import { cmiUpdatesFromXapiStatements } from "../../lib/xapi-interactions.js";
 import { getLearnDashboard } from "../../lib/learn-dashboard.js";
 import { getLearnAchievements } from "../../lib/learn-achievements.js";
+import { sendMail } from "../../lib/mailer.js";
+import { env } from "../../config/env.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -64,6 +66,10 @@ const quizSubmitSchema = z.object({
 
 const scormCommitSchema = z.object({
   values: z.record(z.string(), z.string()),
+});
+
+const lessonConcernSchema = z.object({
+  message: z.string().trim().min(10).max(2000),
 });
 
 function rejectPreviewWrites(access: { preview: boolean }) {
@@ -446,6 +452,61 @@ router.get(
       return;
     }
     res.type("application/json").send(raw);
+  }),
+);
+
+// POST /learn/courses/:courseId/lessons/:lessonId/support — email a learner concern
+router.post(
+  "/courses/:courseId/lessons/:lessonId/support",
+  validate(lessonParams, "params"),
+  validate(lessonConcernSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { courseId, lessonId } = lessonParams.parse(req.params);
+    const { message } = lessonConcernSchema.parse(req.body);
+    const access = await assertLearnAccess(req.user!.sub, courseId, req.user!.role);
+    await assertLessonUnlocked(req.user!.sub, courseId, lessonId, access.preview);
+
+    const [courseRow, lessonRow, userRow] = await Promise.all([
+      query<{ title: string }>("SELECT title FROM courses WHERE id = $1", [courseId]),
+      query<{ title: string }>(
+        "SELECT title FROM lessons WHERE id = $1 AND course_id = $2",
+        [lessonId, courseId],
+      ),
+      query<{ email: string; full_name: string | null; name: string | null }>(
+        "SELECT email, full_name, name FROM users WHERE id = $1",
+        [req.user!.sub],
+      ),
+    ]);
+    const course = courseRow.rows[0];
+    const lesson = lessonRow.rows[0];
+    const user = userRow.rows[0];
+    if (!course || !lesson || !user) throw HttpError.notFound("Lesson not found");
+
+    const learnerName = user.full_name?.trim() || user.name?.trim() || user.email;
+    const text = [
+      `A learner reported a problem while taking a lesson.`,
+      ``,
+      `Name: ${learnerName}`,
+      `Email: ${user.email}`,
+      `Course: ${course.title}`,
+      `Lesson: ${lesson.title}`,
+      access.preview ? `Mode: preview` : `Mode: student`,
+      ``,
+      `Concern:`,
+      message,
+    ].join("\n");
+
+    const result = await sendMail({
+      to: env.supportEmail,
+      replyTo: user.email,
+      subject: `Lesson concern — ${lesson.title}`,
+      text,
+    });
+    if (!result.sent) {
+      throw HttpError.badRequest("Support email could not be sent. Please try again later.");
+    }
+
+    res.json({ ok: true });
   }),
 );
 

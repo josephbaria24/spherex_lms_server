@@ -223,6 +223,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS ielts_completion_certificates_user_uidx
 CREATE UNIQUE INDEX IF NOT EXISTS ielts_completion_certificates_serial_uidx
   ON ielts_completion_certificates (serial_number);
 
+CREATE TABLE IF NOT EXISTS ielts_access_grants (
+  user_id    UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  granted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS ielts_access_requests (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID REFERENCES users(id) ON DELETE SET NULL,
+  training   TEXT NOT NULL,
+  full_name  TEXT NOT NULL,
+  email      TEXT NOT NULL,
+  phone      TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ---------------------------------------------------------------------------
 -- training_sessions  (referenced by /training UI; previously mock-only)
 -- ---------------------------------------------------------------------------

@@ -9,7 +9,8 @@ export type NotificationType =
   | "enrollment.created"
   | "certificate.issued"
   | "organization.member_joined"
-  | "course.update";
+  | "course.update"
+  | "ielts.access_requested";
 
 export type CreateNotificationInput = {
   userId: string;

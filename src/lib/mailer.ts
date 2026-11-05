@@ -6,6 +6,7 @@ export type SendMailInput = {
   subject: string;
   text: string;
   html?: string;
+  replyTo?: string;
 };
 
 function smtpConfigured(): boolean {
@@ -37,6 +38,7 @@ export async function sendMail(input: SendMailInput): Promise<{ sent: boolean; s
   await transport.sendMail({
     from,
     to: input.to,
+    replyTo: input.replyTo,
     subject: input.subject,
     text: input.text,
     html: input.html ?? input.text.replace(/\n/g, "<br/>"),

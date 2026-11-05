@@ -5,6 +5,7 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/httpError.js";
 import { requireAuth, requireAdmin } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
+import { userHasIeltsAccess } from "../../lib/ielts-access.js";
 import {
   marksToIeltsBand,
   scoreReviewerQuiz,
@@ -207,6 +208,12 @@ export function createReviewerQuizRouter(): Router {
       const { id } = idParam.parse(req.params);
       const quiz = await getReviewerQuiz(id, false);
       if (!quiz || !quiz.is_published) throw HttpError.notFound("Quiz not found");
+      if (quiz.exam_type === "IELTS") {
+        const allowed = await userHasIeltsAccess(req.user?.sub, req.user?.role);
+        if (!allowed) {
+          throw HttpError.forbidden("Enter an IELTS access code to open this training");
+        }
+      }
       const { is_published: _pub, ...publicQuiz } = quiz;
       res.json({ quiz: publicQuiz });
     }),
@@ -234,6 +241,12 @@ export function createReviewerQuizRouter(): Router {
       );
       const quiz = quizMeta.rows[0];
       if (!quiz || !quiz.is_published) throw HttpError.notFound("Quiz not found");
+      if (quiz.exam_type === "IELTS") {
+        const allowed = await userHasIeltsAccess(req.user?.sub, req.user?.role);
+        if (!allowed) {
+          throw HttpError.forbidden("Enter an IELTS access code to open this training");
+        }
+      }
 
       const questions = await query<{
         id: string;

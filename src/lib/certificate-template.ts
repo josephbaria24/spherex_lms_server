@@ -89,6 +89,12 @@ function asPageSize(value: string): CertificatePageSize {
     : "a4-landscape";
 }
 
+export function certificateTemplateIsReady(
+  template: Pick<CertificateTemplateRecord, "image_path" | "fields"> | null | undefined,
+): boolean {
+  return Boolean(template && (template.image_path || template.fields.length > 0));
+}
+
 export async function loadCertificateTemplate(
   courseId: string,
 ): Promise<CertificateTemplateRecord | null> {

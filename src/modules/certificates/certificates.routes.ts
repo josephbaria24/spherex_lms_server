@@ -21,6 +21,7 @@ import {
   certificateTemplateDir,
   certificateTemplatePublicPath,
   clearCertificateTemplateImages,
+  certificateTemplateIsReady,
   loadCertificateTemplate,
   saveCertificateTemplate,
   saveCertificateTemplateSchema,
@@ -246,6 +247,11 @@ router.get(
     const data = await loadCertificatePdfData(id);
     if (!data) throw HttpError.notFound("Certificate not found");
     const template = data.course_id ? await loadCertificateTemplate(data.course_id) : null;
+    if (!certificateTemplateIsReady(template)) {
+      throw HttpError.badRequest(
+        "This course does not have a certificate design yet. Your completion is saved. Contact support and we will send your certificate once the design is ready.",
+      );
+    }
 
     const pdf = await buildCertificatePdfBuffer(data, template);
     const filename = `${data.serial_number ?? id}.pdf`;
