@@ -11,6 +11,7 @@ import {
   assertCanEnrollInCourse,
   getCourseEnrollmentPolicy,
 } from "../../lib/course-enrollment.js";
+import { ensureCertificateTemplatesTable } from "../../lib/certificate-template.js";
 import {
   createNotification,
   listCourseInstructorIds,
@@ -62,6 +63,7 @@ router.get(
     }
 
     const includeCourse = filters.include?.includes("course");
+    await ensureCertificateTemplatesTable();
 
     const certificateReady = `EXISTS (
               SELECT 1 FROM certificate_templates ct

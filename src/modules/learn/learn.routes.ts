@@ -10,6 +10,7 @@ import { assertLearnAccess } from "../../lib/org-course-access.js";
 import {
   applyLessonLocks,
   assertLessonUnlocked,
+  ensureLessonAccessColumns,
   LESSON_COMPLETED_CASE,
   LESSON_PROGRESS_PERCENT_CASE,
   LESSON_STARTED_CASE,
@@ -85,10 +86,12 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     const { courseId } = courseIdParam.parse(req.params);
     const access = await assertLearnAccess(req.user!.sub, courseId, req.user!.role);
+    await ensureLessonAccessColumns();
 
     const courseResult = await query(
       `SELECT id, title, description, category, level, duration, lessons, enrolled_count,
-              COALESCE(require_sequential_lessons, false) AS require_sequential_lessons
+              COALESCE(require_sequential_lessons, false) AS require_sequential_lessons,
+              COALESCE(allow_lesson_skip, false) AS allow_lesson_skip
          FROM courses WHERE id = $1`,
       [courseId],
     );
@@ -210,11 +213,20 @@ router.post(
     );
     if (!lesson.rows[0]) throw HttpError.notFound("Lesson not found");
     const contentType = lesson.rows[0].content_type;
-    if (contentType === "articulate") {
-      throw HttpError.badRequest("Complete this lesson in the SCORM player");
-    }
-    if (contentType === "quiz") {
-      throw HttpError.badRequest("Complete this lesson by passing the quiz");
+    const accessFlags = await query<{ allow_lesson_skip: boolean }>(
+      `SELECT COALESCE(allow_lesson_skip, false) AS allow_lesson_skip
+         FROM courses WHERE id = $1`,
+      [courseId],
+    );
+    const allowSkip = accessFlags.rows[0]?.allow_lesson_skip === true;
+    if (!allowSkip && contentType !== "video") {
+      if (contentType === "articulate") {
+        throw HttpError.badRequest("Complete this lesson in the SCORM player");
+      }
+      if (contentType === "quiz") {
+        throw HttpError.badRequest("Complete this lesson by passing the quiz");
+      }
+      throw HttpError.badRequest("This course does not allow marking lessons complete");
     }
 
     await markLessonComplete(req.user!.sub, lessonId, courseId);

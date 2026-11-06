@@ -4,6 +4,22 @@ import { z } from "zod";
 import { query } from "../config/db.js";
 import { getUploadsRoot } from "./org-uploads.js";
 
+export async function ensureCertificateTemplatesTable(): Promise<void> {
+  await query(
+    `CREATE TABLE IF NOT EXISTS certificate_templates (
+       id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+       course_id     UUID NOT NULL UNIQUE REFERENCES courses(id) ON DELETE CASCADE,
+       image_path    TEXT,
+       fields        JSONB NOT NULL DEFAULT '[]'::jsonb,
+       page_size     TEXT NOT NULL DEFAULT 'a4-landscape',
+       canvas_width  INTEGER NOT NULL DEFAULT 842,
+       canvas_height INTEGER NOT NULL DEFAULT 595,
+       created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+       updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+     )`,
+  );
+}
+
 export const CERTIFICATE_PAGE_SIZES = [
   "a4-landscape",
   "a4-portrait",
@@ -98,6 +114,7 @@ export function certificateTemplateIsReady(
 export async function loadCertificateTemplate(
   courseId: string,
 ): Promise<CertificateTemplateRecord | null> {
+  await ensureCertificateTemplatesTable();
   const result = await query<{
     id: string;
     course_id: string;

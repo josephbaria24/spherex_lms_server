@@ -508,6 +508,9 @@ CREATE INDEX IF NOT EXISTS courses_organization_idx ON courses (organization_id)
 ALTER TABLE courses
   ADD COLUMN IF NOT EXISTS require_sequential_lessons BOOLEAN NOT NULL DEFAULT false;
 
+ALTER TABLE courses
+  ADD COLUMN IF NOT EXISTS allow_lesson_skip BOOLEAN NOT NULL DEFAULT false;
+
 -- Decorative card theme (soft color palette) for course list cards
 ALTER TABLE courses
   ADD COLUMN IF NOT EXISTS card_theme TEXT NOT NULL DEFAULT 'sage';

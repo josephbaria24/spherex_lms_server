@@ -1,8 +1,10 @@
 import { query } from "../config/db.js";
+import { ensureCertificateTemplatesTable } from "./certificate-template.js";
 import { getLearnDashboard } from "./learn-dashboard.js";
 import { issueCertificateIfNeeded } from "./certificates.js";
 
 export async function getLearnAchievements(userId: string) {
+  await ensureCertificateTemplatesTable();
   // Backfill certificates for courses already marked completed
   const completed = await query<{ course_id: string }>(
     `SELECT course_id FROM enrollments

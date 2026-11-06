@@ -12,6 +12,7 @@ import { courseCoverPublicPath } from "../../lib/course-uploads.js";
 import { handleCourseCoverUpload } from "../../middleware/course-cover-upload.js";
 import { assertUserPassword } from "../../lib/assert-user-password.js";
 import { ensureUniqueEnrollCode } from "../../lib/course-enrollment.js";
+import { ensureLessonAccessColumns } from "../../lib/lesson-access.js";
 
 const storedAssetSchema = z
   .string()
@@ -41,6 +42,7 @@ const courseSchema = z.object({
   image: storedAssetSchema,
   card_theme: z.enum(COURSE_CARD_THEMES).optional(),
   require_sequential_lessons: z.boolean().optional(),
+  allow_lesson_skip: z.boolean().optional(),
   organization_id: z.string().uuid(),
   price_cents: z.number().int().min(0).optional(),
   enroll_code: z.string().min(4).max(32).nullable().optional(),
@@ -69,6 +71,7 @@ router.get(
   validate(listQuery, "query"),
   asyncHandler(async (req: Request, res: Response) => {
     const filters = listQuery.parse(req.query);
+    await ensureLessonAccessColumns();
     const where: string[] = [];
     const values: unknown[] = [req.user?.sub ?? null];
     let i = 2;
@@ -98,6 +101,7 @@ router.get(
       SELECT c.id, c.title, c.description, c.category, c.level, c.duration,
              c.enrolled_count, c.lessons, c.thumbnail, c.image, c.card_theme, c.organization_id,
              c.require_sequential_lessons,
+             COALESCE(c.allow_lesson_skip, false) AS allow_lesson_skip,
              COALESCE(c.price_cents, 0) AS price_cents,
              (c.enroll_code IS NOT NULL AND btrim(c.enroll_code) <> '') AS requires_enroll_code,
              o.name AS organization_name,
@@ -125,10 +129,12 @@ router.get(
   validate(idParam, "params"),
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = idParam.parse(req.params);
+    await ensureLessonAccessColumns();
     const result = await query(
       `SELECT c.id, c.title, c.description, c.category, c.level, c.duration,
              c.enrolled_count, c.lessons, c.thumbnail, c.image, c.card_theme, c.organization_id,
              c.require_sequential_lessons,
+             COALESCE(c.allow_lesson_skip, false) AS allow_lesson_skip,
              COALESCE(c.price_cents, 0) AS price_cents,
              c.enroll_code,
              (c.enroll_code IS NOT NULL AND btrim(c.enroll_code) <> '') AS requires_enroll_code,
@@ -202,6 +208,7 @@ router.patch(
   validate(courseUpdateSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = idParam.parse(req.params);
+    await ensureLessonAccessColumns();
     const body = courseUpdateSchema.parse(req.body);
 
     if (body.organization_id) {

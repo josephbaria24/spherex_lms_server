@@ -71,7 +71,19 @@ export function applyLessonLocks<T extends { completed: boolean }>(
   });
 }
 
+export async function ensureLessonAccessColumns(): Promise<void> {
+  await query(
+    `ALTER TABLE courses
+       ADD COLUMN IF NOT EXISTS require_sequential_lessons BOOLEAN NOT NULL DEFAULT false`,
+  );
+  await query(
+    `ALTER TABLE courses
+       ADD COLUMN IF NOT EXISTS allow_lesson_skip BOOLEAN NOT NULL DEFAULT false`,
+  );
+}
+
 export async function getCourseRequiresSequential(courseId: string): Promise<boolean> {
+  await ensureLessonAccessColumns();
   const result = await query<{ require_sequential_lessons: boolean }>(
     `SELECT COALESCE(require_sequential_lessons, false) AS require_sequential_lessons
        FROM courses WHERE id = $1`,
