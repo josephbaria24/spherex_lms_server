@@ -39,7 +39,59 @@ async function ensureRequestStatusColumn(): Promise<void> {
   );
 }
 
+const answerKeysSchema = z.object({
+  show_answer_keys: z.boolean(),
+});
+
+async function readShowAnswerKeys(): Promise<boolean> {
+  await query(
+    `CREATE TABLE IF NOT EXISTS ielts_catalog_settings (
+       id               SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+       show_answer_keys BOOLEAN NOT NULL DEFAULT false,
+       updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+     )`,
+  );
+  await query(
+    `INSERT INTO ielts_catalog_settings (id)
+     VALUES (1)
+     ON CONFLICT (id) DO NOTHING`,
+  );
+  const result = await query<{ show_answer_keys: boolean }>(
+    `SELECT show_answer_keys FROM ielts_catalog_settings WHERE id = 1`,
+  );
+  return Boolean(result.rows[0]?.show_answer_keys);
+}
+
 const router = Router();
+
+router.get(
+  "/ielts/answer-keys",
+  asyncHandler(async (_req: Request, res: Response) => {
+    const show_answer_keys = await readShowAnswerKeys();
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ show_answer_keys });
+  }),
+);
+
+router.patch(
+  "/ielts/answer-keys",
+  requireAuth,
+  requireAdmin,
+  validate(answerKeysSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { show_answer_keys } = answerKeysSchema.parse(req.body);
+    await readShowAnswerKeys();
+    const updated = await query<{ show_answer_keys: boolean }>(
+      `UPDATE ielts_catalog_settings
+          SET show_answer_keys = $1,
+              updated_at = now()
+        WHERE id = 1
+        RETURNING show_answer_keys`,
+      [show_answer_keys],
+    );
+    res.json({ show_answer_keys: Boolean(updated.rows[0]?.show_answer_keys) });
+  }),
+);
 
 router.get(
   "/ielts/access",

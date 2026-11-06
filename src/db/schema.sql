@@ -243,6 +243,16 @@ CREATE TABLE IF NOT EXISTS ielts_access_requests (
 ALTER TABLE ielts_access_requests
   ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending';
 
+CREATE TABLE IF NOT EXISTS ielts_catalog_settings (
+  id               SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  show_answer_keys BOOLEAN NOT NULL DEFAULT false,
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO ielts_catalog_settings (id)
+VALUES (1)
+ON CONFLICT (id) DO NOTHING;
+
 -- ---------------------------------------------------------------------------
 -- training_sessions  (referenced by /training UI; previously mock-only)
 -- ---------------------------------------------------------------------------
