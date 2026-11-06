@@ -3,10 +3,12 @@ import { join } from "node:path";
 import PDFDocument from "pdfkit";
 import { query } from "../config/db.js";
 import { getUploadsRoot } from "./org-uploads.js";
-import { createNotification } from "./notifications.js";
+import { createNotification, listAdminUserIds, notifyUsers } from "./notifications.js";
 import { appUrl } from "./mailer.js";
 import {
   certificateTemplateAbsolutePath,
+  certificateTemplateIsReady,
+  loadCertificateTemplate,
   type CertificateField,
   type CertificateTemplateRecord,
 } from "./certificate-template.js";
@@ -82,6 +84,10 @@ export async function issueCertificateIfNeeded(
     [courseId],
   );
   const courseTitle = course.rows[0]?.title ?? "a course";
+  const template = await loadCertificateTemplate(courseId);
+  if (!certificateTemplateIsReady(template)) {
+    return null;
+  }
 
   let serial = await nextSerialNumber();
   let inserted: IssuedCertificate | null = null;
@@ -132,6 +138,40 @@ export async function issueCertificateIfNeeded(
   }).catch(() => {});
 
   return inserted;
+}
+
+/** Tell admins a learner finished a course that still has no certificate design. */
+export async function notifyAdminsMissingCertificate(
+  userId: string,
+  courseId: string,
+  enrollmentId: string,
+): Promise<void> {
+  const template = await loadCertificateTemplate(courseId);
+  if (certificateTemplateIsReady(template)) return;
+
+  const details = await query<{
+    full_name: string | null;
+    name: string | null;
+    email: string;
+    title: string | null;
+  }>(
+    `SELECT u.full_name, u.name, u.email, c.title
+       FROM users u
+       LEFT JOIN courses c ON c.id = $2
+      WHERE u.id = $1`,
+    [userId, courseId],
+  );
+  const row = details.rows[0];
+  const learner = row?.full_name?.trim() || row?.name?.trim() || row?.email || "A learner";
+  const title = row?.title ?? "a course";
+  const admins = await listAdminUserIds();
+  await notifyUsers(admins, {
+    type: "certificate.missing",
+    title: "Finished course has no certificate",
+    body: `${learner} finished "${title}". This course does not have a certificate set up yet.`,
+    link: `/admin/courses/${courseId}/certificate`,
+    referenceId: enrollmentId,
+  });
 }
 
 type CertPdfData = {

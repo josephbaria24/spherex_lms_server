@@ -244,9 +244,21 @@ ALTER TABLE ielts_access_requests
   ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending';
 
 CREATE TABLE IF NOT EXISTS ielts_catalog_settings (
-  id               SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-  show_answer_keys BOOLEAN NOT NULL DEFAULT false,
-  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+  id                SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  show_answer_keys  BOOLEAN NOT NULL DEFAULT false,
+  mock_session_open BOOLEAN NOT NULL DEFAULT false,
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE ielts_catalog_settings
+  ADD COLUMN IF NOT EXISTS mock_session_open BOOLEAN NOT NULL DEFAULT false;
+
+CREATE TABLE IF NOT EXISTS ielts_track_interest (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  track      TEXT NOT NULL CHECK (track IN ('ukvi')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, track)
 );
 
 INSERT INTO ielts_catalog_settings (id)

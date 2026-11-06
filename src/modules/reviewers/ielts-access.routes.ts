@@ -43,23 +43,54 @@ const answerKeysSchema = z.object({
   show_answer_keys: z.boolean(),
 });
 
-async function readShowAnswerKeys(): Promise<boolean> {
+const mockSessionSchema = z.object({
+  mock_session_open: z.boolean(),
+});
+
+const trackInterestSchema = z.object({
+  track: z.literal("ukvi"),
+});
+
+async function ensureTrackInterestTable(): Promise<void> {
+  await query(
+    `CREATE TABLE IF NOT EXISTS ielts_track_interest (
+       id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+       user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+       track      TEXT NOT NULL CHECK (track IN ('ukvi')),
+       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+       UNIQUE (user_id, track)
+     )`,
+  );
+}
+
+async function readCatalogSettings(): Promise<{
+  show_answer_keys: boolean;
+  mock_session_open: boolean;
+}> {
   await query(
     `CREATE TABLE IF NOT EXISTS ielts_catalog_settings (
-       id               SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-       show_answer_keys BOOLEAN NOT NULL DEFAULT false,
-       updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+       id                SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+       show_answer_keys  BOOLEAN NOT NULL DEFAULT false,
+       mock_session_open BOOLEAN NOT NULL DEFAULT false,
+       updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
      )`,
+  );
+  await query(
+    `ALTER TABLE ielts_catalog_settings
+       ADD COLUMN IF NOT EXISTS mock_session_open BOOLEAN NOT NULL DEFAULT false`,
   );
   await query(
     `INSERT INTO ielts_catalog_settings (id)
      VALUES (1)
      ON CONFLICT (id) DO NOTHING`,
   );
-  const result = await query<{ show_answer_keys: boolean }>(
-    `SELECT show_answer_keys FROM ielts_catalog_settings WHERE id = 1`,
+  const result = await query<{ show_answer_keys: boolean; mock_session_open: boolean }>(
+    `SELECT show_answer_keys, mock_session_open FROM ielts_catalog_settings WHERE id = 1`,
   );
-  return Boolean(result.rows[0]?.show_answer_keys);
+  return {
+    show_answer_keys: Boolean(result.rows[0]?.show_answer_keys),
+    mock_session_open: Boolean(result.rows[0]?.mock_session_open),
+  };
 }
 
 const router = Router();
@@ -67,9 +98,29 @@ const router = Router();
 router.get(
   "/ielts/answer-keys",
   asyncHandler(async (_req: Request, res: Response) => {
-    const show_answer_keys = await readShowAnswerKeys();
+    const settings = await readCatalogSettings();
     res.setHeader("Cache-Control", "no-store");
-    res.json({ show_answer_keys });
+    res.json(settings);
+  }),
+);
+
+router.patch(
+  "/ielts/mock-session",
+  requireAuth,
+  requireAdmin,
+  validate(mockSessionSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { mock_session_open } = mockSessionSchema.parse(req.body);
+    await readCatalogSettings();
+    const updated = await query<{ mock_session_open: boolean }>(
+      `UPDATE ielts_catalog_settings
+          SET mock_session_open = $1,
+              updated_at = now()
+        WHERE id = 1
+        RETURNING mock_session_open`,
+      [mock_session_open],
+    );
+    res.json({ mock_session_open: Boolean(updated.rows[0]?.mock_session_open) });
   }),
 );
 
@@ -80,7 +131,7 @@ router.patch(
   validate(answerKeysSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { show_answer_keys } = answerKeysSchema.parse(req.body);
-    await readShowAnswerKeys();
+    await readCatalogSettings();
     const updated = await query<{ show_answer_keys: boolean }>(
       `UPDATE ielts_catalog_settings
           SET show_answer_keys = $1,
@@ -90,6 +141,84 @@ router.patch(
       [show_answer_keys],
     );
     res.json({ show_answer_keys: Boolean(updated.rows[0]?.show_answer_keys) });
+  }),
+);
+
+router.get(
+  "/ielts/track-interest",
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (_req: Request, res: Response) => {
+    await ensureTrackInterestTable();
+    const result = await query<{
+      id: string;
+      created_at: string;
+      full_name: string | null;
+      name: string | null;
+      email: string;
+    }>(
+      `SELECT i.id, i.created_at, u.full_name, u.name, u.email
+         FROM ielts_track_interest i
+         JOIN users u ON u.id = i.user_id
+        WHERE i.track = 'ukvi'
+        ORDER BY i.created_at DESC`,
+    );
+    res.json({
+      count: result.rows.length,
+      requests: result.rows.map((row) => ({
+        id: row.id,
+        name: row.full_name || row.name || row.email,
+        email: row.email,
+        created_at: row.created_at,
+      })),
+    });
+  }),
+);
+
+router.get(
+  "/ielts/track-interest/mine",
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    await ensureTrackInterestTable();
+    const result = await query(
+      `SELECT 1 FROM ielts_track_interest WHERE user_id = $1 AND track = 'ukvi'`,
+      [req.user!.sub],
+    );
+    res.json({ requested: Boolean(result.rows[0]) });
+  }),
+);
+
+router.post(
+  "/ielts/track-interest",
+  requireAuth,
+  validate(trackInterestSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    await ensureTrackInterestTable();
+    const inserted = await query<{ id: string }>(
+      `INSERT INTO ielts_track_interest (user_id, track)
+       VALUES ($1, 'ukvi')
+       ON CONFLICT (user_id, track) DO NOTHING
+       RETURNING id`,
+      [req.user!.sub],
+    );
+    const created = Boolean(inserted.rows[0]);
+    if (created) {
+      const person = await query<{ full_name: string | null; name: string | null; email: string }>(
+        `SELECT full_name, name, email FROM users WHERE id = $1`,
+        [req.user!.sub],
+      );
+      const row = person.rows[0];
+      const name = row?.full_name || row?.name || row?.email || "A learner";
+      const adminIds = await listAdminUserIds();
+      await notifyUsers(adminIds, {
+        type: "ielts.ukvi_requested",
+        title: "UKVI IELTS requested",
+        body: `${name} asked for IELTS for UKVI Life Skills.`,
+        link: "/admin/ielts",
+        referenceId: inserted.rows[0]?.id,
+      });
+    }
+    res.json({ requested: true, created });
   }),
 );
 

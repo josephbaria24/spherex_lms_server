@@ -8,6 +8,7 @@ export type NotificationType =
   | "payment.rejected"
   | "enrollment.created"
   | "certificate.issued"
+  | "certificate.missing"
   | "organization.member_joined"
   | "course.update"
   | "ielts.access_requested";

@@ -176,6 +176,10 @@ export async function updateEnrollmentProgress(
            )) AS started`,
     [userId, courseId],
   );
+  const prior = await query<{ id: string; completed: boolean }>(
+    `SELECT id, completed FROM enrollments WHERE user_id = $1 AND course_id = $2`,
+    [userId, courseId],
+  );
   const total = Number(stats.rows[0]?.total ?? 0);
   const done = Number(stats.rows[0]?.done ?? 0);
   const started = Number(stats.rows[0]?.started ?? 0);
@@ -195,8 +199,14 @@ export async function updateEnrollmentProgress(
 
   if (completed) {
     try {
-      const { issueCertificateIfNeeded } = await import("./certificates.js");
+      const { issueCertificateIfNeeded, notifyAdminsMissingCertificate } = await import(
+        "./certificates.js"
+      );
       await issueCertificateIfNeeded(userId, courseId);
+      const enrollmentId = prior.rows[0]?.id;
+      if (enrollmentId && !prior.rows[0]?.completed) {
+        await notifyAdminsMissingCertificate(userId, courseId, enrollmentId);
+      }
     } catch {
       // Completion must succeed even if certificate side-effects fail
     }

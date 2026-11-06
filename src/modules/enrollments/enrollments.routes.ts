@@ -63,21 +63,44 @@ router.get(
 
     const includeCourse = filters.include?.includes("course");
 
+    const certificateReady = `EXISTS (
+              SELECT 1 FROM certificate_templates ct
+               WHERE ct.course_id = e.course_id
+                 AND (
+                   COALESCE(ct.image_path, '') <> ''
+                   OR jsonb_array_length(COALESCE(ct.fields, '[]'::jsonb)) > 0
+                 )
+            ) AS certificate_ready`;
     const sql = includeCourse
       ? `SELECT e.id, e.user_id, e.course_id, e.progress_percent, e.completed,
                 e.completed_at, e.created_at, e.updated_at,
+                ${certificateReady},
                 row_to_json(c) AS course
            FROM enrollments e
            LEFT JOIN courses c ON c.id = e.course_id
            WHERE ${where.join(" AND ")}
            ORDER BY e.created_at DESC`
-      : `SELECT id, user_id, course_id, progress_percent, completed,
-                completed_at, created_at, updated_at
+      : `SELECT e.id, e.user_id, e.course_id, e.progress_percent, e.completed,
+                e.completed_at, e.created_at, e.updated_at,
+                ${certificateReady}
            FROM enrollments e
            WHERE ${where.join(" AND ")}
-           ORDER BY created_at DESC`;
+           ORDER BY e.created_at DESC`;
 
-    const result = await query(sql, values);
+    const result = await query<{
+      id: string;
+      user_id: string;
+      course_id: string;
+      completed: boolean;
+      certificate_ready: boolean;
+    }>(sql, values);
+    if (filters.completed === "true") {
+      const { notifyAdminsMissingCertificate } = await import("../../lib/certificates.js");
+      for (const row of result.rows) {
+        if (!row.completed || row.certificate_ready) continue;
+        notifyAdminsMissingCertificate(row.user_id, row.course_id, row.id).catch(() => {});
+      }
+    }
     res.json({ enrollments: result.rows });
   }),
 );
@@ -217,8 +240,11 @@ router.patch(
 
     if (enrollment.completed) {
       try {
-        const { issueCertificateIfNeeded } = await import("../../lib/certificates.js");
+        const { issueCertificateIfNeeded, notifyAdminsMissingCertificate } = await import(
+          "../../lib/certificates.js"
+        );
         await issueCertificateIfNeeded(enrollment.user_id, enrollment.course_id);
+        await notifyAdminsMissingCertificate(enrollment.user_id, enrollment.course_id, id);
       } catch {
         // ignore certificate side-effects
       }
