@@ -235,8 +235,13 @@ CREATE TABLE IF NOT EXISTS ielts_access_requests (
   full_name  TEXT NOT NULL,
   email      TEXT NOT NULL,
   phone      TEXT NOT NULL,
+  status     TEXT NOT NULL DEFAULT 'pending'
+             CHECK (status IN ('pending', 'accepted', 'rejected')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE ielts_access_requests
+  ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending';
 
 -- ---------------------------------------------------------------------------
 -- training_sessions  (referenced by /training UI; previously mock-only)

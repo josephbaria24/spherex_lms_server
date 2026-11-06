@@ -22,23 +22,12 @@ export async function grantIeltsAccessByEmail(email: string): Promise<void> {
   );
 }
 
-async function promoteIeltsRequest(userId: string): Promise<boolean> {
-  const promoted = await query(
-    `INSERT INTO ielts_access_grants (user_id)
-     SELECT u.id
-       FROM users u
-      WHERE u.id = $1
-        AND EXISTS (
-          SELECT 1
-            FROM ielts_access_requests r
-           WHERE r.user_id = u.id
-              OR lower(r.email) = lower(u.email)
-        )
-     ON CONFLICT (user_id) DO NOTHING
-     RETURNING user_id`,
-    [userId],
+export async function revokeIeltsAccessByEmail(email: string): Promise<void> {
+  await query(
+    `DELETE FROM ielts_access_grants
+      WHERE user_id IN (SELECT id FROM users WHERE lower(email) = lower($1))`,
+    [email],
   );
-  return Boolean(promoted.rows[0]);
 }
 
 export async function userHasIeltsAccess(
@@ -51,8 +40,7 @@ export async function userHasIeltsAccess(
     "SELECT 1 FROM ielts_access_grants WHERE user_id = $1",
     [userId],
   );
-  if (result.rows[0]) return true;
-  return promoteIeltsRequest(userId);
+  return Boolean(result.rows[0]);
 }
 
 export function ieltsAccessCodeMatches(code: string): boolean {

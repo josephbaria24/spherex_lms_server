@@ -6,11 +6,12 @@ import {
   grantIeltsAccess,
   grantIeltsAccessByEmail,
   ieltsAccessCodeMatches,
+  revokeIeltsAccessByEmail,
   userHasIeltsAccess,
 } from "../../lib/ielts-access.js";
 import { sendMail } from "../../lib/mailer.js";
 import { listAdminUserIds, notifyUsers } from "../../lib/notifications.js";
-import { requireAuth } from "../../middleware/auth.js";
+import { requireAdmin, requireAuth } from "../../middleware/auth.js";
 import { paymentRequestRateLimiter } from "../../middleware/rateLimit.js";
 import { validate } from "../../middleware/validate.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
@@ -26,6 +27,17 @@ const requestSchema = z.object({
 const codeSchema = z.object({
   code: z.string().trim().min(4).max(64),
 });
+
+const idParam = z.object({
+  id: z.string().uuid(),
+});
+
+async function ensureRequestStatusColumn(): Promise<void> {
+  await query(
+    `ALTER TABLE ielts_access_requests
+       ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'`,
+  );
+}
 
 const router = Router();
 
@@ -60,6 +72,7 @@ router.post(
   validate(requestSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const body = requestSchema.parse(req.body);
+    await ensureRequestStatusColumn();
     const inserted = await query<{ id: string }>(
       `INSERT INTO ielts_access_requests (user_id, training, full_name, email, phone)
        VALUES ($1, $2, $3, $4, $5)
@@ -73,9 +86,6 @@ router.post(
       ],
     );
     const requestId = inserted.rows[0]?.id;
-    if (req.user?.sub) await grantIeltsAccess(req.user.sub);
-    await grantIeltsAccessByEmail(body.email);
-    const unlocked = await userHasIeltsAccess(req.user?.sub, req.user?.role);
 
     const adminIds = await listAdminUserIds();
     await notifyUsers(adminIds, {
@@ -106,9 +116,7 @@ router.post(
           `Phone: ${body.phone}`,
           req.user?.sub ? `Account: ${req.user.sub}` : "Account: not signed in",
           ``,
-          unlocked
-            ? `Their account now has every IELTS practice set and material.`
-            : `No matching account was signed in. Access applies when they sign in with ${body.email}.`,
+          `This request is pending. Materials stay locked until an admin accepts it.`,
         ].join("\n"),
       });
       mailed = mail.sent;
@@ -118,13 +126,81 @@ router.post(
 
     res.json({
       ok: true,
-      unlocked,
-      message: unlocked
-        ? "All IELTS materials are unlocked on your account."
-        : mailed
-          ? "Access request sent. Sign in with this email to open every IELTS material."
-          : "Your request was saved. Sign in with this email to open every IELTS material.",
+      unlocked: false,
+      message: mailed
+        ? "Request sent. An admin still needs to accept it before IELTS materials open."
+        : "Request saved. An admin still needs to accept it before IELTS materials open.",
     });
+  }),
+);
+
+router.get(
+  "/ielts/access-requests",
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (_req: Request, res: Response) => {
+    await ensureRequestStatusColumn();
+    const result = await query(
+      `SELECT id, user_id, training, full_name, email, phone, status, created_at
+         FROM ielts_access_requests
+        ORDER BY created_at DESC
+        LIMIT 100`,
+    );
+    res.json({ requests: result.rows });
+  }),
+);
+
+router.post(
+  "/ielts/access-requests/:id/accept",
+  requireAuth,
+  requireAdmin,
+  validate(idParam, "params"),
+  asyncHandler(async (req: Request, res: Response) => {
+    await ensureRequestStatusColumn();
+    const { id } = idParam.parse(req.params);
+    const updated = await query<{
+      id: string;
+      user_id: string | null;
+      email: string;
+      full_name: string;
+      training: string;
+    }>(
+      `UPDATE ielts_access_requests
+          SET status = 'accepted'
+        WHERE id = $1 AND status = 'pending'
+        RETURNING id, user_id, email, full_name, training`,
+      [id],
+    );
+    const request = updated.rows[0];
+    if (!request) throw HttpError.badRequest("That request is no longer pending");
+    if (request.user_id) await grantIeltsAccess(request.user_id);
+    await grantIeltsAccessByEmail(request.email);
+    res.json({ ok: true, status: "accepted" });
+  }),
+);
+
+router.post(
+  "/ielts/access-requests/:id/reject",
+  requireAuth,
+  requireAdmin,
+  validate(idParam, "params"),
+  asyncHandler(async (req: Request, res: Response) => {
+    await ensureRequestStatusColumn();
+    const { id } = idParam.parse(req.params);
+    const updated = await query<{ user_id: string | null; email: string }>(
+      `UPDATE ielts_access_requests
+          SET status = 'rejected'
+        WHERE id = $1 AND status = 'pending'
+        RETURNING user_id, email`,
+      [id],
+    );
+    const request = updated.rows[0];
+    if (!request) throw HttpError.badRequest("That request is no longer pending");
+    if (request.user_id) {
+      await query("DELETE FROM ielts_access_grants WHERE user_id = $1", [request.user_id]);
+    }
+    await revokeIeltsAccessByEmail(request.email);
+    res.json({ ok: true, status: "rejected" });
   }),
 );
 
