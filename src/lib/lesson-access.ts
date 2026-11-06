@@ -71,15 +71,51 @@ export function applyLessonLocks<T extends { completed: boolean }>(
   });
 }
 
+let lessonAccessColumnsReady: Promise<void> | null = null;
+
+async function columnExists(table: string, column: string): Promise<boolean> {
+  const result = await query<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+         FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = $1
+          AND column_name = $2
+     ) AS exists`,
+    [table, column],
+  );
+  return result.rows[0]?.exists === true;
+}
+
+/** Adds missing lesson-access flags when the DB role can alter courses. Safe no-op otherwise. */
 export async function ensureLessonAccessColumns(): Promise<void> {
-  await query(
-    `ALTER TABLE courses
-       ADD COLUMN IF NOT EXISTS require_sequential_lessons BOOLEAN NOT NULL DEFAULT false`,
-  );
-  await query(
-    `ALTER TABLE courses
-       ADD COLUMN IF NOT EXISTS allow_lesson_skip BOOLEAN NOT NULL DEFAULT false`,
-  );
+  if (!lessonAccessColumnsReady) {
+    lessonAccessColumnsReady = (async () => {
+      const needed = [
+        ["require_sequential_lessons", "BOOLEAN NOT NULL DEFAULT false"],
+        ["allow_lesson_skip", "BOOLEAN NOT NULL DEFAULT false"],
+      ] as const;
+
+      for (const [column, definition] of needed) {
+        if (await columnExists("courses", column)) continue;
+        try {
+          await query(`ALTER TABLE courses ADD COLUMN ${column} ${definition}`);
+        } catch (err) {
+          const code =
+            err && typeof err === "object" && "code" in err
+              ? String((err as { code?: unknown }).code ?? "")
+              : "";
+          // App role may not own courses in production; column can be added by a privileged migration.
+          if (code === "42501" || code === "42701") continue;
+          throw err;
+        }
+      }
+    })().catch((err) => {
+      lessonAccessColumnsReady = null;
+      throw err;
+    });
+  }
+  await lessonAccessColumnsReady;
 }
 
 export async function getCourseRequiresSequential(courseId: string): Promise<boolean> {
