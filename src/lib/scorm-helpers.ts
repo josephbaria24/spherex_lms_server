@@ -1,4 +1,5 @@
 import { query } from "../config/db.js";
+import { ispringSuspendIndicatesFinished } from "./ispring-completion.js";
 import {
   markLessonComplete,
   touchLessonStarted,
@@ -82,6 +83,17 @@ export async function saveScormCmi(
     updates["cmi.core.lesson_location"] ?? cmi["cmi.core.lesson_location"] ?? existing?.lesson_location ?? null;
   const suspendData =
     updates["cmi.suspend_data"] ?? cmi["cmi.suspend_data"] ?? existing?.suspend_data ?? null;
+
+  // iSpring presentations often reach the last slide without setting lesson_status.
+  if (
+    !isScormLessonComplete(lessonStatus) &&
+    !isScormLessonFailed(lessonStatus) &&
+    ispringSuspendIndicatesFinished(suspendData)
+  ) {
+    lessonStatus = "completed";
+    cmi["cmi.core.lesson_status"] = "completed";
+    cmi["cmi.completion_status"] = "completed";
+  }
 
   await query(
     `INSERT INTO scorm_data (user_id, lesson_id, course_id, cmi, lesson_status, score_raw, lesson_location, suspend_data)

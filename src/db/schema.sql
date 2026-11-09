@@ -375,6 +375,14 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
 
 CREATE INDEX IF NOT EXISTS quiz_attempts_user_idx ON quiz_attempts (user_id, quiz_id);
 
+-- Tracks when the learner's current 2-attempt quiz cycle started (reset after module retake)
+CREATE TABLE IF NOT EXISTS quiz_attempt_cycles (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  quiz_id UUID NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
+  cycle_started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, quiz_id)
+);
+
 CREATE TABLE IF NOT EXISTS lesson_progress (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

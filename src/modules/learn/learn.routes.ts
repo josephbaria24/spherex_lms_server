@@ -22,6 +22,11 @@ import {
   updateEnrollmentProgress,
 } from "../../lib/quiz-helpers.js";
 import {
+  getQuizAttemptState,
+  MAX_QUIZ_ATTEMPTS_PER_CYCLE,
+  resetModulesForQuizRetake,
+} from "../../lib/quiz-attempt-policy.js";
+import {
   getScormData,
   resetScormData,
   saveScormCmi,
@@ -30,6 +35,7 @@ import {
 import { cmiUpdatesFromXapiStatements } from "../../lib/xapi-interactions.js";
 import { getLearnDashboard } from "../../lib/learn-dashboard.js";
 import { getLearnAchievements } from "../../lib/learn-achievements.js";
+import { getCourseCompletionSummary } from "../../lib/course-completion-summary.js";
 import { sendMail } from "../../lib/mailer.js";
 import { env } from "../../config/env.js";
 
@@ -56,6 +62,19 @@ router.get(
 );
 
 const courseIdParam = z.object({ courseId: z.string().uuid() });
+
+// GET /learn/courses/:courseId/completion-summary
+router.get(
+  "/courses/:courseId/completion-summary",
+  validate(courseIdParam, "params"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { courseId } = courseIdParam.parse(req.params);
+    await assertLearnAccess(req.user!.sub, courseId, req.user!.role);
+    const summary = await getCourseCompletionSummary(req.user!.sub, courseId);
+    res.json(summary);
+  }),
+);
+
 const lessonParams = z.object({
   courseId: z.string().uuid(),
   lessonId: z.string().uuid(),
@@ -184,13 +203,25 @@ router.get(
     }
 
     let quiz = null;
+    let quiz_attempts = null;
     if (lesson.content_type === "quiz") {
       quiz = await getQuizByLessonId(lessonId, false);
+      if (quiz && !access.preview) {
+        quiz_attempts = await getQuizAttemptState(req.user!.sub, quiz.id);
+      } else if (quiz) {
+        quiz_attempts = {
+          max_attempts: MAX_QUIZ_ATTEMPTS_PER_CYCLE,
+          attempts_used: 0,
+          attempts_remaining: MAX_QUIZ_ATTEMPTS_PER_CYCLE,
+          module_retake_required: false,
+        };
+      }
     }
 
     res.json({
       lesson,
       quiz,
+      quiz_attempts,
       completed,
       preview: access.preview,
     });
@@ -257,6 +288,17 @@ router.post(
     const quiz = await getQuizByLessonId(lessonId, true);
     if (!quiz) throw HttpError.notFound("Quiz not found");
 
+    const attemptState = await getQuizAttemptState(req.user!.sub, quiz.id);
+    if (attemptState.module_retake_required) {
+      throw HttpError.conflict(
+        `You used both quiz attempts. Retake the modules before trying again.`,
+        {
+          code: "MODULE_RETAKE_REQUIRED",
+          ...attemptState,
+        },
+      );
+    }
+
     const questions = await query<{ id: string; correct_option_id: string }>(
       "SELECT id, correct_option_id FROM quiz_questions WHERE quiz_id = $1",
       [quiz.id],
@@ -276,6 +318,7 @@ router.post(
     }
 
     const progress = await updateEnrollmentProgress(req.user!.sub, courseId);
+    const nextAttemptState = await getQuizAttemptState(req.user!.sub, quiz.id);
 
     res.json({
       score: result.score,
@@ -284,6 +327,51 @@ router.post(
       correct: result.correct,
       total: result.total,
       progress,
+      attempt_state: nextAttemptState,
+    });
+  }),
+);
+
+// POST /learn/courses/:courseId/lessons/:lessonId/quiz/retake-modules
+router.post(
+  "/courses/:courseId/lessons/:lessonId/quiz/retake-modules",
+  validate(lessonParams, "params"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { courseId, lessonId } = lessonParams.parse(req.params);
+    const access = await assertLearnAccess(req.user!.sub, courseId, req.user!.role);
+    rejectPreviewWrites(access);
+
+    const lesson = await query(
+      `SELECT id FROM lessons
+        WHERE id = $1 AND course_id = $2 AND status = 'published' AND content_type = 'quiz'`,
+      [lessonId, courseId],
+    );
+    if (!lesson.rows[0]) throw HttpError.notFound("Quiz lesson not found");
+
+    const quiz = await getQuizByLessonId(lessonId, false);
+    if (!quiz) throw HttpError.notFound("Quiz not found");
+
+    const attemptState = await getQuizAttemptState(req.user!.sub, quiz.id);
+    if (!attemptState.module_retake_required) {
+      throw HttpError.badRequest(
+        "Module retake is only required after both quiz attempts are used.",
+        { code: "RETAKE_NOT_REQUIRED", ...attemptState },
+      );
+    }
+
+    const result = await resetModulesForQuizRetake(
+      req.user!.sub,
+      courseId,
+      lessonId,
+      quiz.id,
+    );
+
+    res.json({
+      ok: true,
+      progress: result.progress,
+      first_lesson_id: result.first_lesson_id,
+      reset_lesson_ids: result.reset_lesson_ids,
+      attempt_state: result.attempt_state,
     });
   }),
 );
