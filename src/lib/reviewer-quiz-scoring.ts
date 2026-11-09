@@ -9,6 +9,10 @@ export type ReviewerScoreableQuestion = {
   options?: { id: string; text: string }[];
 };
 
+function wordCount(value: string): number {
+  return value.trim().split(/\s+/).filter(Boolean).length;
+}
+
 function normalizeBlank(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -28,6 +32,12 @@ export function isQuestionCorrect(
 ): boolean {
   if (answer == null) return false;
   const type = question.question_type || "multiple_choice";
+
+  if (type === "written_response") {
+    const minimum = Number.parseInt(question.correct_option_id, 10);
+    if (!Number.isFinite(minimum) || minimum < 1) return Boolean(answer.trim());
+    return wordCount(answer) >= minimum;
+  }
 
   if (type === "fill_blank") {
     const given = normalizeBlank(answer);

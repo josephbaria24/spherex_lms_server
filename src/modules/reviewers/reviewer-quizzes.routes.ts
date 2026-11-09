@@ -20,7 +20,7 @@ import {
 } from "../../lib/import-reviewer-pdf.js";
 
 const EXAM_TYPES = ["CSE", "NLE", "LET", "IELTS", "Other"] as const;
-const QUESTION_TYPES = ["multiple_choice", "true_false", "fill_blank", "multi_select"] as const;
+const QUESTION_TYPES = ["multiple_choice", "true_false", "fill_blank", "multi_select", "written_response"] as const;
 
 const optionSchema = z.object({
   id: z.string().min(1),
@@ -36,6 +36,17 @@ const questionSchema = z
     sort_order: z.number().int().optional(),
   })
   .superRefine((q, ctx) => {
+    if (q.question_type === "written_response") {
+      const minimum = Number.parseInt(q.correct_option_id, 10);
+      if (!Number.isFinite(minimum) || minimum < 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Written responses need a minimum word count",
+          path: ["correct_option_id"],
+        });
+      }
+      return;
+    }
     if (q.question_type === "fill_blank") {
       if (!q.correct_option_id.trim()) {
         ctx.addIssue({
@@ -159,6 +170,10 @@ async function getReviewerQuiz(quizId: string, includeAnswers: boolean) {
         options: q.options,
       };
       if (includeAnswers) return { ...base, correct_option_id: q.correct_option_id };
+      if (q.question_type === "written_response") {
+        const minimum = Number.parseInt(q.correct_option_id, 10);
+        return { ...base, minimum_words: Number.isFinite(minimum) ? minimum : 1 };
+      }
       return base;
     }),
   };

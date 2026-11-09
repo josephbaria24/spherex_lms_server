@@ -10,7 +10,7 @@ import { pool, query, withTransaction } from "../config/db.js";
 
 type SeedQuestion = {
   prompt: string;
-  question_type: "multiple_choice" | "true_false" | "fill_blank" | "multi_select";
+  question_type: "multiple_choice" | "true_false" | "fill_blank" | "multi_select" | "written_response";
   options: { id: string; text: string }[];
   correct_option_id: string;
   sort_order?: number;

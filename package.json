@@ -20,6 +20,7 @@
     "db:seed:cse-quizzes": "tsx src/db/seed-cse-quizzes.ts",
     "db:seed:reviewer-groups": "tsx src/db/seed-reviewer-groups.ts",
     "db:seed:ielts-quizzes": "tsx src/db/seed-ielts-quizzes.ts",
+    "db:seed:ielts-productive": "tsx src/db/seed-ielts-productive.ts",
     "db:seed:scorm": "tsx scripts/seed-scorm-course.ts"
   },
   "dependencies": {
