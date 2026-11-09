@@ -9,6 +9,15 @@ export type QuizAttemptState = {
   attempts_used: number;
   attempts_remaining: number;
   module_retake_required: boolean;
+  already_passed: boolean;
+};
+
+export type QuizAttemptResult = {
+  score: number;
+  passed: boolean;
+  passing_score: number;
+  correct: number;
+  total: number;
 };
 
 let cyclesTableReady: Promise<void> | null = null;
@@ -29,9 +38,14 @@ export async function ensureQuizAttemptCyclesTable(): Promise<void> {
 
 async function getOrCreateCycleStartedAt(userId: string, quizId: string): Promise<string> {
   await ensureQuizAttemptCyclesTable();
+  // Anchor a first cycle to existing attempts so a deploy does not wipe prior passes.
   await query(
     `INSERT INTO quiz_attempt_cycles (user_id, quiz_id, cycle_started_at)
-     VALUES ($1, $2, now())
+     SELECT $1, $2,
+            COALESCE(
+              (SELECT MIN(created_at) FROM quiz_attempts WHERE user_id = $1 AND quiz_id = $2),
+              now()
+            )
      ON CONFLICT (user_id, quiz_id) DO NOTHING`,
     [userId, quizId],
   );
@@ -58,12 +72,51 @@ export async function getQuizAttemptState(
   );
   const attemptsUsed = Number(stats.rows[0]?.n ?? 0);
   const passedInCycle = stats.rows[0]?.passed === "true";
-  const attemptsRemaining = Math.max(0, MAX_QUIZ_ATTEMPTS_PER_CYCLE - attemptsUsed);
+  const attemptsRemaining = passedInCycle
+    ? 0
+    : Math.max(0, MAX_QUIZ_ATTEMPTS_PER_CYCLE - attemptsUsed);
   return {
     max_attempts: MAX_QUIZ_ATTEMPTS_PER_CYCLE,
     attempts_used: attemptsUsed,
     attempts_remaining: attemptsRemaining,
     module_retake_required: attemptsUsed >= MAX_QUIZ_ATTEMPTS_PER_CYCLE && !passedInCycle,
+    already_passed: passedInCycle,
+  };
+}
+
+/** Latest attempt to show after refresh — prefer a pass, else newest fail. */
+export async function getLatestQuizAttemptResult(
+  userId: string,
+  quizId: string,
+  passingScore: number,
+): Promise<QuizAttemptResult | null> {
+  const row = await query<{
+    score: number;
+    passed: boolean;
+  }>(
+    `SELECT score, passed
+       FROM quiz_attempts
+      WHERE user_id = $1 AND quiz_id = $2
+      ORDER BY passed DESC, created_at DESC
+      LIMIT 1`,
+    [userId, quizId],
+  );
+  const attempt = row.rows[0];
+  if (!attempt) return null;
+
+  const questions = await query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM quiz_questions WHERE quiz_id = $1`,
+    [quizId],
+  );
+  const total = Number(questions.rows[0]?.n ?? 0);
+  const correct = total > 0 ? Math.round((attempt.score / 100) * total) : 0;
+
+  return {
+    score: attempt.score,
+    passed: attempt.passed,
+    passing_score: passingScore,
+    correct,
+    total,
   };
 }
 

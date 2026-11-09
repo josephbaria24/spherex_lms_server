@@ -22,6 +22,7 @@ import {
   updateEnrollmentProgress,
 } from "../../lib/quiz-helpers.js";
 import {
+  getLatestQuizAttemptResult,
   getQuizAttemptState,
   MAX_QUIZ_ATTEMPTS_PER_CYCLE,
   resetModulesForQuizRetake,
@@ -204,16 +205,32 @@ router.get(
 
     let quiz = null;
     let quiz_attempts = null;
+    let quiz_result = null;
     if (lesson.content_type === "quiz") {
       quiz = await getQuizByLessonId(lessonId, false);
       if (quiz && !access.preview) {
         quiz_attempts = await getQuizAttemptState(req.user!.sub, quiz.id);
+        quiz_result = await getLatestQuizAttemptResult(
+          req.user!.sub,
+          quiz.id,
+          quiz.passing_score,
+        );
+        // Lesson marked complete counts as passed even if cycle window is off
+        if (completed && quiz_attempts && !quiz_attempts.already_passed) {
+          quiz_attempts = {
+            ...quiz_attempts,
+            already_passed: true,
+            attempts_remaining: 0,
+            module_retake_required: false,
+          };
+        }
       } else if (quiz) {
         quiz_attempts = {
           max_attempts: MAX_QUIZ_ATTEMPTS_PER_CYCLE,
           attempts_used: 0,
           attempts_remaining: MAX_QUIZ_ATTEMPTS_PER_CYCLE,
           module_retake_required: false,
+          already_passed: false,
         };
       }
     }
@@ -222,6 +239,7 @@ router.get(
       lesson,
       quiz,
       quiz_attempts,
+      quiz_result,
       completed,
       preview: access.preview,
     });
@@ -289,6 +307,19 @@ router.post(
     if (!quiz) throw HttpError.notFound("Quiz not found");
 
     const attemptState = await getQuizAttemptState(req.user!.sub, quiz.id);
+    const alreadyComplete = await query<{ completed: boolean }>(
+      `SELECT COALESCE(lp.completed, false) AS completed
+         FROM lessons l
+         LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.user_id = $1
+        WHERE l.id = $2`,
+      [req.user!.sub, lessonId],
+    );
+    if (attemptState.already_passed || alreadyComplete.rows[0]?.completed === true) {
+      throw HttpError.conflict("You already passed this quiz.", {
+        code: "ALREADY_PASSED",
+        ...attemptState,
+      });
+    }
     if (attemptState.module_retake_required) {
       throw HttpError.conflict(
         `You used both quiz attempts. Retake the modules before trying again.`,
