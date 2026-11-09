@@ -6,6 +6,11 @@ import { HttpError } from "../../utils/httpError.js";
 import { requireAuth, requireAdmin } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
 import { getUserActivity, resetUserProgress } from "../../lib/user-progress.js";
+import {
+  ensureUserPresenceColumns,
+  isUserOnline,
+  touchUserPresence,
+} from "../../lib/user-presence.js";
 
 interface UserListRow {
   id: string;
@@ -16,6 +21,10 @@ interface UserListRow {
   status: "active" | "inactive" | "suspended";
   created_at: Date;
   enrollment_count: string;
+  last_login_at: Date | null;
+  last_seen_at: Date | null;
+  active_course_id: string | null;
+  active_course_title: string | null;
 }
 
 const router = Router();
@@ -36,6 +45,26 @@ const idParam = z.object({ id: z.string().uuid() });
 const progressQuery = z.object({
   course_id: z.string().uuid().optional(),
 });
+
+const presenceSchema = z.object({
+  course_id: z.string().uuid().nullable().optional(),
+  clear_course: z.boolean().optional(),
+});
+
+// POST /users/presence — heartbeat (online + optional active course)
+router.post(
+  "/presence",
+  requireAuth,
+  validate(presenceSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const body = presenceSchema.parse(req.body ?? {});
+    await touchUserPresence(req.user!.sub, {
+      courseId: body.course_id ?? undefined,
+      clearCourse: body.clear_course === true || body.course_id === null,
+    });
+    res.json({ ok: true });
+  }),
+);
 
 // GET /users/:id/activity  (admin)
 router.get(
@@ -65,17 +94,21 @@ router.delete(
   }),
 );
 
-// GET /users  (admin) — list all users with enrollment count
+// GET /users  (admin) — list all users with enrollment count + presence
 router.get(
   "/",
   requireAuth,
   requireAdmin,
   asyncHandler(async (_req: Request, res: Response) => {
+    await ensureUserPresenceColumns();
     const result = await query<UserListRow>(
       `SELECT
          u.id, u.email, u.full_name, u.name, u.role, u.status, u.created_at,
+         u.last_login_at, u.last_seen_at, u.active_course_id,
+         c.title AS active_course_title,
          COALESCE(e.cnt, 0)::text AS enrollment_count
        FROM users u
+       LEFT JOIN courses c ON c.id = u.active_course_id
        LEFT JOIN (
          SELECT user_id, COUNT(*)::int AS cnt
          FROM enrollments
@@ -84,10 +117,26 @@ router.get(
        ORDER BY u.created_at DESC`,
     );
     res.json({
-      users: result.rows.map((r) => ({
-        ...r,
-        enrollment_count: Number(r.enrollment_count),
-      })),
+      users: result.rows.map((r) => {
+        const online = isUserOnline(r.last_seen_at);
+        return {
+          id: r.id,
+          email: r.email,
+          full_name: r.full_name,
+          name: r.name,
+          role: r.role,
+          status: r.status,
+          created_at: r.created_at,
+          enrollment_count: Number(r.enrollment_count),
+          last_login_at: r.last_login_at,
+          last_seen_at: r.last_seen_at,
+          is_online: online,
+          active_course:
+            online && r.active_course_id
+              ? { id: r.active_course_id, title: r.active_course_title }
+              : null,
+        };
+      }),
     });
   }),
 );

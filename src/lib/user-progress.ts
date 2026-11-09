@@ -1,5 +1,6 @@
 import { query, withTransaction } from "../config/db.js";
 import { HttpError } from "../utils/httpError.js";
+import { ensureQuizAttemptCyclesTable } from "./quiz-attempt-policy.js";
 import { meshNameFromSuspendData } from "./storyline-resume.js";
 
 type ScormInteraction = {
@@ -324,6 +325,8 @@ export async function resetUserProgress(userId: string, courseId?: string) {
     if (!course.rows[0]) throw HttpError.notFound("Course not found");
   }
 
+  await ensureQuizAttemptCyclesTable();
+
   return withTransaction(async (client) => {
     if (courseId) {
       const lp = await client.query(
@@ -339,6 +342,13 @@ export async function resetUserProgress(userId: string, courseId?: string) {
            USING quizzes q, lessons l
           WHERE qa.quiz_id = q.id AND q.lesson_id = l.id
             AND l.course_id = $2 AND qa.user_id = $1`,
+        [userId, courseId],
+      );
+      const cycles = await client.query(
+        `DELETE FROM quiz_attempt_cycles qac
+           USING quizzes q, lessons l
+          WHERE qac.quiz_id = q.id AND q.lesson_id = l.id
+            AND l.course_id = $2 AND qac.user_id = $1`,
         [userId, courseId],
       );
       await client.query(
@@ -358,6 +368,7 @@ export async function resetUserProgress(userId: string, courseId?: string) {
           lesson_progress: lp.rowCount ?? 0,
           scorm_data: scorm.rowCount ?? 0,
           quiz_attempts: quiz.rowCount ?? 0,
+          quiz_attempt_cycles: cycles.rowCount ?? 0,
         },
       };
     }
@@ -365,6 +376,9 @@ export async function resetUserProgress(userId: string, courseId?: string) {
     const lp = await client.query(`DELETE FROM lesson_progress WHERE user_id = $1`, [userId]);
     const scorm = await client.query(`DELETE FROM scorm_data WHERE user_id = $1`, [userId]);
     const quiz = await client.query(`DELETE FROM quiz_attempts WHERE user_id = $1`, [userId]);
+    const cycles = await client.query(`DELETE FROM quiz_attempt_cycles WHERE user_id = $1`, [
+      userId,
+    ]);
     await client.query(
       `UPDATE enrollments
           SET progress_percent = 0, completed = false, completed_at = NULL, updated_at = now()
@@ -379,6 +393,7 @@ export async function resetUserProgress(userId: string, courseId?: string) {
         lesson_progress: lp.rowCount ?? 0,
         scorm_data: scorm.rowCount ?? 0,
         quiz_attempts: quiz.rowCount ?? 0,
+        quiz_attempt_cycles: cycles.rowCount ?? 0,
       },
     };
   });

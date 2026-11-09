@@ -13,6 +13,7 @@ import {
   recordEnrollCodeUse,
 } from "../../lib/course-enrollment.js";
 import { ensureCertificateTemplatesTable } from "../../lib/certificate-template.js";
+import { ensureQuizAttemptCyclesTable } from "../../lib/quiz-attempt-policy.js";
 import {
   createNotification,
   listCourseInstructorIds,
@@ -380,7 +381,11 @@ router.patch(
   }),
 );
 
-// DELETE /enrollments/:id  (admin only — users typically can't unenroll themselves silently)
+const deleteEnrollmentSchema = z.object({
+  delete_history: z.boolean().optional(),
+});
+
+// DELETE /enrollments/:id  (admin only — optional wipe of course history/progress)
 router.delete(
   "/:id",
   requireAuth,
@@ -388,21 +393,85 @@ router.delete(
   validate(idParam, "params"),
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = idParam.parse(req.params);
-    await withTransaction(async (client) => {
-      const existing = await client.query<{ course_id: string }>(
-        "SELECT course_id FROM enrollments WHERE id = $1",
+    const body =
+      req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+    const queryFlag =
+      typeof req.query.delete_history === "string"
+        ? req.query.delete_history === "true" || req.query.delete_history === "1"
+        : undefined;
+    const { delete_history: deleteHistoryBody } = deleteEnrollmentSchema.parse(body);
+    const deleteHistory = deleteHistoryBody ?? queryFlag ?? false;
+    if (deleteHistory) {
+      await ensureQuizAttemptCyclesTable();
+    }
+
+    const result = await withTransaction(async (client) => {
+      const existing = await client.query<{ user_id: string; course_id: string }>(
+        "SELECT user_id, course_id FROM enrollments WHERE id = $1",
         [id],
       );
       const row = existing.rows[0];
       if (!row) throw HttpError.notFound("Enrollment not found");
+
+      let deleted = {
+        lesson_progress: 0,
+        scorm_data: 0,
+        quiz_attempts: 0,
+        quiz_attempt_cycles: 0,
+        certificates: 0,
+      };
+
+      if (deleteHistory) {
+        const lp = await client.query(
+          `DELETE FROM lesson_progress WHERE user_id = $1 AND course_id = $2`,
+          [row.user_id, row.course_id],
+        );
+        const scorm = await client.query(
+          `DELETE FROM scorm_data WHERE user_id = $1 AND course_id = $2`,
+          [row.user_id, row.course_id],
+        );
+        const quiz = await client.query(
+          `DELETE FROM quiz_attempts qa
+             USING quizzes q, lessons l
+            WHERE qa.quiz_id = q.id AND q.lesson_id = l.id
+              AND l.course_id = $2 AND qa.user_id = $1`,
+          [row.user_id, row.course_id],
+        );
+        const cycles = await client.query(
+          `DELETE FROM quiz_attempt_cycles qac
+             USING quizzes q, lessons l
+            WHERE qac.quiz_id = q.id AND q.lesson_id = l.id
+              AND l.course_id = $2 AND qac.user_id = $1`,
+          [row.user_id, row.course_id],
+        );
+        const certs = await client.query(
+          `DELETE FROM certificates WHERE user_id = $1 AND course_id = $2`,
+          [row.user_id, row.course_id],
+        );
+        deleted = {
+          lesson_progress: lp.rowCount ?? 0,
+          scorm_data: scorm.rowCount ?? 0,
+          quiz_attempts: quiz.rowCount ?? 0,
+          quiz_attempt_cycles: cycles.rowCount ?? 0,
+          certificates: certs.rowCount ?? 0,
+        };
+      }
 
       await client.query("DELETE FROM enrollments WHERE id = $1", [id]);
       await client.query(
         `UPDATE courses SET enrolled_count = GREATEST(enrolled_count - 1, 0) WHERE id = $1`,
         [row.course_id],
       );
+
+      return {
+        user_id: row.user_id,
+        course_id: row.course_id,
+        delete_history: deleteHistory,
+        deleted,
+      };
     });
-    res.json({ ok: true });
+
+    res.json({ ok: true, ...result });
   }),
 );
 

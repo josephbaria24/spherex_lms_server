@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS users (
   name          TEXT,
   role          TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('admin', 'teacher', 'student', 'user')),
   status        TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
+  last_login_at TIMESTAMPTZ,
+  last_seen_at  TIMESTAMPTZ,
+  active_course_id UUID,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );

@@ -176,6 +176,9 @@ router.post(
     const ok = await verifyPassword(password, user.password_hash);
     if (!ok) throw HttpError.unauthorized("Invalid email or password");
 
+    const { recordLoginPresence } = await import("../../lib/user-presence.js");
+    await recordLoginPresence(user.id).catch(() => {});
+
     const token = issueSession(res, user);
     res.json({ user: publicUser(user), token });
   }),
