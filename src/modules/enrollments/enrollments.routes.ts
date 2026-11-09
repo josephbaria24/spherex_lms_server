@@ -10,6 +10,7 @@ import { isAdmin } from "../../lib/roles.js";
 import {
   assertCanEnrollInCourse,
   getCourseEnrollmentPolicy,
+  recordEnrollCodeUse,
 } from "../../lib/course-enrollment.js";
 import { ensureCertificateTemplatesTable } from "../../lib/certificate-template.js";
 import {
@@ -22,6 +23,10 @@ const enrollSchema = z.object({
   course_id: z.string().uuid(),
   user_id: z.string().uuid().optional(),
   enroll_code: z.string().min(4).max(32).optional(),
+});
+
+const redeemCodeSchema = z.object({
+  code: z.string().min(4).max(32),
 });
 
 const updateEnrollmentSchema = z.object({
@@ -155,6 +160,9 @@ router.post(
     });
 
     if (enrollment.created) {
+      if (enroll_code) {
+        await recordEnrollCodeUse(course_id, enroll_code);
+      }
       const course = await query<{ title: string }>(
         `SELECT title FROM courses WHERE id = $1`,
         [course_id],
@@ -191,6 +199,122 @@ router.post(
     }
 
     res.status(201).json({ enrollment: enrollment.enrollment });
+  }),
+);
+
+// POST /enrollments/redeem-code — enroll via course access / enrollment code
+router.post(
+  "/redeem-code",
+  requireAuth,
+  requireVerifiedEmail,
+  validate(redeemCodeSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { code } = redeemCodeSchema.parse(req.body);
+    const normalized = code.trim().toUpperCase();
+    const targetUserId = req.user!.sub;
+
+    const courseResult = await query<{
+      id: string;
+      title: string;
+      organization_id: string | null;
+      price_cents: number;
+      enroll_code: string | null;
+      enroll_code_max_uses: number | null;
+      enroll_code_uses: number;
+      enroll_code_expires_at: string | null;
+    }>(
+      `SELECT id, title, organization_id, COALESCE(price_cents, 0) AS price_cents, enroll_code,
+              enroll_code_max_uses,
+              COALESCE(enroll_code_uses, 0) AS enroll_code_uses,
+              enroll_code_expires_at
+         FROM courses
+        WHERE enroll_code IS NOT NULL
+          AND btrim(enroll_code) <> ''
+          AND upper(enroll_code) = $1
+        LIMIT 1`,
+      [normalized],
+    );
+    const course = courseResult.rows[0];
+    if (!course) throw HttpError.notFound("Invalid course code");
+
+    if (!isAdmin(req.user!.role)) {
+      await assertCanEnrollInCourse(
+        targetUserId,
+        {
+          id: course.id,
+          organization_id: course.organization_id,
+          price_cents: course.price_cents,
+          enroll_code: course.enroll_code,
+          enroll_code_max_uses: course.enroll_code_max_uses,
+          enroll_code_uses: course.enroll_code_uses,
+          enroll_code_expires_at: course.enroll_code_expires_at,
+        },
+        req.user!.role,
+        { enroll_code: normalized },
+      );
+    }
+
+    const enrollment = await withTransaction(async (client) => {
+      const result = await client.query(
+        `INSERT INTO enrollments (user_id, course_id)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id, course_id) DO NOTHING
+         RETURNING *`,
+        [targetUserId, course.id],
+      );
+
+      if (result.rowCount === 0) {
+        const existing = await client.query(
+          "SELECT * FROM enrollments WHERE user_id = $1 AND course_id = $2",
+          [targetUserId, course.id],
+        );
+        return { enrollment: existing.rows[0], created: false as const };
+      }
+
+      await client.query(
+        `UPDATE courses SET enrolled_count = enrolled_count + 1 WHERE id = $1`,
+        [course.id],
+      );
+      return { enrollment: result.rows[0], created: true as const };
+    });
+
+    if (enrollment.created) {
+      await recordEnrollCodeUse(course.id, normalized);
+      await createNotification({
+        userId: targetUserId,
+        type: "enrollment.created",
+        title: "You're enrolled",
+        body: `You are now enrolled in "${course.title}".`,
+        link: `/courses/${course.id}/learn`,
+        referenceId: enrollment.enrollment.id,
+      });
+
+      const instructorIds = await listCourseInstructorIds(course.id);
+      const student = await query<{ full_name: string | null; email: string }>(
+        `SELECT full_name, email FROM users WHERE id = $1`,
+        [targetUserId],
+      );
+      const studentLabel =
+        student.rows[0]?.full_name?.trim() || student.rows[0]?.email || "A learner";
+
+      await notifyUsers(
+        instructorIds.filter((id) => id !== targetUserId),
+        {
+          type: "enrollment.created",
+          title: "New student enrolled",
+          body: `${studentLabel} enrolled in "${course.title}" with an access code.`,
+          link: "/teacher",
+          referenceId: enrollment.enrollment.id,
+        },
+      );
+    }
+
+    res.status(enrollment.created ? 201 : 200).json({
+      kind: "course",
+      created: enrollment.created,
+      enrollment: enrollment.enrollment,
+      course: { id: course.id, title: course.title },
+    });
   }),
 );
 

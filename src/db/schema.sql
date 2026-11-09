@@ -541,6 +541,14 @@ ALTER TABLE courses
   ADD COLUMN IF NOT EXISTS price_cents INTEGER NOT NULL DEFAULT 0 CHECK (price_cents >= 0);
 ALTER TABLE courses
   ADD COLUMN IF NOT EXISTS enroll_code TEXT;
+ALTER TABLE courses
+  ADD COLUMN IF NOT EXISTS enroll_code_max_uses INTEGER
+    CHECK (enroll_code_max_uses IS NULL OR enroll_code_max_uses > 0);
+ALTER TABLE courses
+  ADD COLUMN IF NOT EXISTS enroll_code_uses INTEGER NOT NULL DEFAULT 0
+    CHECK (enroll_code_uses >= 0);
+ALTER TABLE courses
+  ADD COLUMN IF NOT EXISTS enroll_code_expires_at TIMESTAMPTZ;
 
 CREATE UNIQUE INDEX IF NOT EXISTS courses_enroll_code_uidx
   ON courses (upper(enroll_code))

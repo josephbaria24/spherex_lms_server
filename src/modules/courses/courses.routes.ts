@@ -11,7 +11,10 @@ import { COURSE_CARD_THEMES } from "../../lib/course-card-themes.js";
 import { courseCoverPublicPath } from "../../lib/course-uploads.js";
 import { handleCourseCoverUpload } from "../../middleware/course-cover-upload.js";
 import { assertUserPassword } from "../../lib/assert-user-password.js";
-import { ensureUniqueEnrollCode } from "../../lib/course-enrollment.js";
+import {
+  ensureEnrollCodeColumns,
+  ensureUniqueEnrollCode,
+} from "../../lib/course-enrollment.js";
 import { ensureLessonAccessColumns } from "../../lib/lesson-access.js";
 
 const storedAssetSchema = z
@@ -62,6 +65,17 @@ const listQuery = z.object({
   organization_id: z.string().uuid().optional(),
   unassigned: z.enum(["true", "false"]).optional(),
 });
+const regenerateEnrollCodeSchema = z.object({
+  max_uses: z.number().int().min(1).max(100000).nullable().optional(),
+  expires_at: z
+    .string()
+    .nullable()
+    .optional()
+    .refine(
+      (value) => value == null || value === "" || !Number.isNaN(Date.parse(value)),
+      "Invalid expiration date",
+    ),
+});
 
 const router = Router();
 
@@ -72,6 +86,8 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     const filters = listQuery.parse(req.query);
     await ensureLessonAccessColumns();
+    await ensureEnrollCodeColumns();
+    const adminView = isAdmin(req.user?.role);
     const where: string[] = [];
     const values: unknown[] = [req.user?.sub ?? null];
     let i = 2;
@@ -104,6 +120,14 @@ router.get(
              COALESCE(c.allow_lesson_skip, false) AS allow_lesson_skip,
              COALESCE(c.price_cents, 0) AS price_cents,
              (c.enroll_code IS NOT NULL AND btrim(c.enroll_code) <> '') AS requires_enroll_code,
+             ${
+               adminView
+                 ? `c.enroll_code,
+             c.enroll_code_max_uses,
+             COALESCE(c.enroll_code_uses, 0) AS enroll_code_uses,
+             c.enroll_code_expires_at,`
+                 : ""
+             }
              o.name AS organization_name,
              o.slug AS organization_slug,
              (SELECT COUNT(*)::int FROM lessons l WHERE l.course_id = c.id) AS lesson_count,
@@ -130,6 +154,7 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = idParam.parse(req.params);
     await ensureLessonAccessColumns();
+    await ensureEnrollCodeColumns();
     const result = await query(
       `SELECT c.id, c.title, c.description, c.category, c.level, c.duration,
              c.enrolled_count, c.lessons, c.thumbnail, c.image, c.card_theme, c.organization_id,
@@ -137,6 +162,9 @@ router.get(
              COALESCE(c.allow_lesson_skip, false) AS allow_lesson_skip,
              COALESCE(c.price_cents, 0) AS price_cents,
              c.enroll_code,
+             c.enroll_code_max_uses,
+             COALESCE(c.enroll_code_uses, 0) AS enroll_code_uses,
+             c.enroll_code_expires_at,
              (c.enroll_code IS NOT NULL AND btrim(c.enroll_code) <> '') AS requires_enroll_code,
               o.name AS organization_name,
               o.slug AS organization_slug,
@@ -153,8 +181,17 @@ router.get(
     if (!isAdmin(req.user!.role)) {
       await assertOrgAccessForCourse(req.user!.sub, id, req.user!.role);
       // Do not leak enrollment codes to learners
-      const { enroll_code: _hidden, ...safe } = course as typeof course & {
+      const {
+        enroll_code: _hidden,
+        enroll_code_max_uses: _max,
+        enroll_code_uses: _uses,
+        enroll_code_expires_at: _exp,
+        ...safe
+      } = course as typeof course & {
         enroll_code?: string | null;
+        enroll_code_max_uses?: number | null;
+        enroll_code_uses?: number;
+        enroll_code_expires_at?: string | null;
       };
       res.json({ course: safe });
       return;
@@ -249,15 +286,42 @@ router.post(
   validate(idParam, "params"),
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = idParam.parse(req.params);
+    const body = regenerateEnrollCodeSchema.parse(req.body ?? {});
+    await ensureEnrollCodeColumns();
     const exists = await query("SELECT id FROM courses WHERE id = $1", [id]);
     if (!exists.rows[0]) throw HttpError.notFound("Course not found");
 
+    const maxUses = body.max_uses === undefined ? null : body.max_uses;
+    let expiresAt: string | null = null;
+    if (body.expires_at !== undefined && body.expires_at !== null && body.expires_at !== "") {
+      expiresAt = new Date(body.expires_at).toISOString();
+    }
+
     const enroll_code = await ensureUniqueEnrollCode(id);
-    const updated = await query(
-      "UPDATE courses SET enroll_code = $1 WHERE id = $2 RETURNING enroll_code",
-      [enroll_code, id],
+    const updated = await query<{
+      enroll_code: string;
+      enroll_code_max_uses: number | null;
+      enroll_code_uses: number;
+      enroll_code_expires_at: string | null;
+    }>(
+      `UPDATE courses
+          SET enroll_code = $1,
+              enroll_code_max_uses = $2,
+              enroll_code_uses = 0,
+              enroll_code_expires_at = $3
+        WHERE id = $4
+    RETURNING enroll_code, enroll_code_max_uses,
+              COALESCE(enroll_code_uses, 0) AS enroll_code_uses,
+              enroll_code_expires_at`,
+      [enroll_code, maxUses, expiresAt, id],
     );
-    res.json({ enroll_code: updated.rows[0]?.enroll_code });
+    const row = updated.rows[0];
+    res.json({
+      enroll_code: row?.enroll_code,
+      enroll_code_max_uses: row?.enroll_code_max_uses ?? null,
+      enroll_code_uses: row?.enroll_code_uses ?? 0,
+      enroll_code_expires_at: row?.enroll_code_expires_at ?? null,
+    });
   }),
 );
 
