@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { asyncHandler } from "../../utils/asyncHandler.js";
-import { requireAuth, requireAdmin } from "../../middleware/auth.js";
+import { requireAuth, requireIeltsStaff } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
 import {
   buildIeltsCertificatePdf,
@@ -21,7 +21,7 @@ const learnersQuery = z.object({
 router.get(
   "/ielts/learners",
   requireAuth,
-  requireAdmin,
+  requireIeltsStaff,
   validate(learnersQuery, "query"),
   asyncHandler(async (req: Request, res: Response) => {
     const { search } = learnersQuery.parse(req.query);

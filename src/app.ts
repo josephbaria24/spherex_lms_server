@@ -40,6 +40,7 @@ import { initReviewerGroupUploadsDirectory } from "./lib/reviewer-group-uploads.
 import { initReceiptUploadsDirectory } from "./lib/payment-requests.js";
 import { initCertificatePhotoUploadsDirectory } from "./lib/certificates.js";
 import { ensureCertificateRegistryTables } from "./lib/certificate-registry.js";
+import { ensureTeachingFieldColumn } from "./lib/teaching-field.js";
 
 export function createApp(): Express {
   const app = express();
@@ -53,6 +54,9 @@ export function createApp(): Express {
   initCertificatePhotoUploadsDirectory();
   void ensureCertificateRegistryTables().catch((err) => {
     console.error("[boot] certificate registry tables:", err);
+  });
+  void ensureTeachingFieldColumn().catch((err) => {
+    console.error("[boot] teaching_field column:", err);
   });
 
   app.disable("x-powered-by");

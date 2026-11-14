@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
   full_name     TEXT,
   name          TEXT,
   role          TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('admin', 'teacher', 'student', 'user')),
+  teaching_field TEXT CHECK (teaching_field IS NULL OR teaching_field IN ('ielts', 'courses')),
   status        TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
   last_login_at TIMESTAMPTZ,
   last_seen_at  TIMESTAMPTZ,

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { query } from "../../config/db.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/httpError.js";
-import { requireAuth, requireAdmin } from "../../middleware/auth.js";
+import { requireAuth, requireIeltsStaff } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
 import { handleReviewerGroupCoverUpload } from "../../middleware/reviewer-group-cover-upload.js";
 import { reviewerGroupCoverPublicPath } from "../../lib/reviewer-group-uploads.js";
@@ -202,7 +202,7 @@ export function createReviewerGroupRouter(): Router {
   router.get(
     "/groups",
     requireAuth,
-    requireAdmin,
+    requireIeltsStaff,
     validate(listQuery, "query"),
     asyncHandler(async (req: Request, res: Response) => {
       const filters = listQuery.parse(req.query);
@@ -289,7 +289,7 @@ export function createReviewerGroupRouter(): Router {
   router.post(
     "/groups",
     requireAuth,
-    requireAdmin,
+    requireIeltsStaff,
     validate(createGroupSchema),
     asyncHandler(async (req: Request, res: Response) => {
       const body = createGroupSchema.parse(req.body);
@@ -317,7 +317,7 @@ export function createReviewerGroupRouter(): Router {
   router.patch(
     "/groups/:id",
     requireAuth,
-    requireAdmin,
+    requireIeltsStaff,
     validate(idParam, "params"),
     validate(updateGroupSchema),
     asyncHandler(async (req: Request, res: Response) => {
@@ -347,7 +347,7 @@ export function createReviewerGroupRouter(): Router {
   router.post(
     "/groups/:id/cover",
     requireAuth,
-    requireAdmin,
+    requireIeltsStaff,
     validate(idParam, "params"),
     (req, res, next) => {
       const { id } = idParam.parse(req.params);
@@ -374,7 +374,7 @@ export function createReviewerGroupRouter(): Router {
   router.delete(
     "/groups/:id",
     requireAuth,
-    requireAdmin,
+    requireIeltsStaff,
     validate(idParam, "params"),
     asyncHandler(async (req: Request, res: Response) => {
       const { id } = idParam.parse(req.params);
@@ -390,7 +390,7 @@ export function createReviewerGroupRouter(): Router {
   router.patch(
     "/quizzes/:id/assign-group",
     requireAuth,
-    requireAdmin,
+    requireIeltsStaff,
     validate(idParam, "params"),
     validate(
       z.object({

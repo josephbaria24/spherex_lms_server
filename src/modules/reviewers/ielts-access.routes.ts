@@ -9,9 +9,9 @@ import {
   revokeIeltsAccessByEmail,
   userHasIeltsAccess,
 } from "../../lib/ielts-access.js";
-import { sendMail } from "../../lib/mailer.js";
+import { appUrl, sendMail } from "../../lib/mailer.js";
 import { listAdminUserIds, notifyUsers } from "../../lib/notifications.js";
-import { requireAdmin, requireAuth } from "../../middleware/auth.js";
+import { requireAuth, requireIeltsStaff } from "../../middleware/auth.js";
 import { paymentRequestRateLimiter } from "../../middleware/rateLimit.js";
 import { validate } from "../../middleware/validate.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
@@ -131,7 +131,7 @@ router.get(
 router.patch(
   "/ielts/mock-session",
   requireAuth,
-  requireAdmin,
+  requireIeltsStaff,
   validate(mockSessionSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const body = mockSessionSchema.parse(req.body);
@@ -164,7 +164,7 @@ router.patch(
 router.patch(
   "/ielts/answer-keys",
   requireAuth,
-  requireAdmin,
+  requireIeltsStaff,
   validate(answerKeysSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { show_answer_keys } = answerKeysSchema.parse(req.body);
@@ -184,7 +184,7 @@ router.patch(
 router.get(
   "/ielts/track-interest",
   requireAuth,
-  requireAdmin,
+  requireIeltsStaff,
   asyncHandler(async (_req: Request, res: Response) => {
     await ensureTrackInterestTable();
     const result = await query<{
@@ -262,7 +262,11 @@ router.post(
 router.get(
   "/ielts/access",
   asyncHandler(async (req: Request, res: Response) => {
-    const unlocked = await userHasIeltsAccess(req.user?.sub, req.user?.role);
+    const unlocked = await userHasIeltsAccess(
+      req.user?.sub,
+      req.user?.role,
+      req.user?.teaching_field,
+    );
     res.json({ unlocked });
   }),
 );
@@ -356,7 +360,7 @@ router.post(
 router.get(
   "/ielts/access-requests",
   requireAuth,
-  requireAdmin,
+  requireIeltsStaff,
   asyncHandler(async (_req: Request, res: Response) => {
     await ensureRequestStatusColumn();
     const result = await query(
@@ -372,7 +376,7 @@ router.get(
 router.post(
   "/ielts/access-requests/:id/accept",
   requireAuth,
-  requireAdmin,
+  requireIeltsStaff,
   validate(idParam, "params"),
   asyncHandler(async (req: Request, res: Response) => {
     await ensureRequestStatusColumn();
@@ -401,7 +405,7 @@ router.post(
 router.post(
   "/ielts/access-requests/:id/reject",
   requireAuth,
-  requireAdmin,
+  requireIeltsStaff,
   validate(idParam, "params"),
   asyncHandler(async (req: Request, res: Response) => {
     await ensureRequestStatusColumn();
@@ -420,6 +424,126 @@ router.post(
     }
     await revokeIeltsAccessByEmail(request.email);
     res.json({ ok: true, status: "rejected" });
+  }),
+);
+
+const announceSchema = z.object({
+  subject: z.string().trim().min(3).max(160),
+  message: z.string().trim().min(3).max(5000),
+  audience: z.enum(["granted", "active", "all_learners"]).default("granted"),
+});
+
+const learnerProfileSchema = z.object({
+  full_name: z.string().trim().min(1).max(120).optional(),
+  phone: z.string().trim().max(40).optional().nullable(),
+});
+
+const idParamLike = z.object({ id: z.string().uuid() });
+
+// POST /reviewers/ielts/announce — email IELTS learners
+router.post(
+  "/ielts/announce",
+  requireAuth,
+  requireIeltsStaff,
+  validate(announceSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const body = announceSchema.parse(req.body);
+    const audienceSql =
+      body.audience === "granted"
+        ? `JOIN ielts_access_grants g ON g.user_id = u.id`
+        : body.audience === "active"
+          ? `JOIN reviewer_quiz_attempts a ON a.user_id = u.id
+             JOIN reviewer_quizzes q ON q.id = a.quiz_id AND q.exam_type = 'IELTS'`
+          : `WHERE u.id IN (
+               SELECT user_id FROM ielts_access_grants
+               UNION
+               SELECT a.user_id
+                 FROM reviewer_quiz_attempts a
+                 JOIN reviewer_quizzes q ON q.id = a.quiz_id AND q.exam_type = 'IELTS'
+                WHERE a.user_id IS NOT NULL
+             )`;
+    const statusClause =
+      body.audience === "all_learners"
+        ? `AND u.email IS NOT NULL AND u.status = 'active'`
+        : `WHERE u.email IS NOT NULL AND u.status = 'active'`;
+    const sql = `
+      SELECT DISTINCT u.id, u.email,
+             COALESCE(NULLIF(u.full_name, ''), NULLIF(u.name, ''), u.email) AS name
+        FROM users u
+        ${audienceSql}
+        ${statusClause}`;
+
+    const recipients = await query<{ id: string; email: string; name: string }>(sql);
+    let sent = 0;
+    let skipped = 0;
+    for (const recipient of recipients.rows) {
+      const result = await sendMail({
+        to: recipient.email,
+        subject: body.subject,
+        text: [
+          `Hi ${recipient.name},`,
+          "",
+          body.message,
+          "",
+          "— PetroCademia IELTS",
+          appUrl("/ielts"),
+        ].join("\n"),
+      });
+      if (result.sent) sent += 1;
+      else skipped += 1;
+    }
+    res.json({
+      ok: true,
+      recipients: recipients.rows.length,
+      sent,
+      skipped,
+    });
+  }),
+);
+
+// PATCH /reviewers/ielts/learners/:id — update learner contact profile
+router.patch(
+  "/ielts/learners/:id",
+  requireAuth,
+  requireIeltsStaff,
+  validate(idParamLike, "params"),
+  validate(learnerProfileSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = idParamLike.parse(req.params);
+    const body = learnerProfileSchema.parse(req.body);
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    let i = 1;
+    if (body.full_name !== undefined) {
+      fields.push(`full_name = $${i}`);
+      fields.push(`name = $${i}`);
+      values.push(body.full_name);
+      i += 1;
+    }
+    if (body.phone !== undefined) {
+      fields.push(`phone = $${i++}`);
+      values.push(body.phone === "" ? null : body.phone);
+    }
+    if (fields.length === 0) throw HttpError.badRequest("No fields to update");
+    values.push(id);
+    const result = await query(
+      `UPDATE users
+          SET ${fields.join(", ")}, updated_at = now()
+        WHERE id = $${i}
+          AND (
+            EXISTS (SELECT 1 FROM ielts_access_grants g WHERE g.user_id = users.id)
+            OR EXISTS (
+              SELECT 1
+                FROM reviewer_quiz_attempts a
+                JOIN reviewer_quizzes q ON q.id = a.quiz_id AND q.exam_type = 'IELTS'
+               WHERE a.user_id = users.id
+            )
+          )
+        RETURNING id, email, full_name, name, phone, role, status`,
+      values,
+    );
+    if (!result.rows[0]) throw HttpError.notFound("IELTS learner not found");
+    res.json({ user: result.rows[0] });
   }),
 );
 

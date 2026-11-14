@@ -1,7 +1,8 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { query } from "../config/db.js";
 import { env } from "../config/env.js";
-import { isAdmin } from "./roles.js";
+import { canAccessIeltsStaff, isTeacher } from "./roles.js";
+import { loadTeachingField } from "./teaching-field.js";
 
 export async function grantIeltsAccess(userId: string): Promise<void> {
   await query(
@@ -33,8 +34,13 @@ export async function revokeIeltsAccessByEmail(email: string): Promise<void> {
 export async function userHasIeltsAccess(
   userId: string | undefined,
   role?: string | null,
+  teachingField?: string | null,
 ): Promise<boolean> {
-  if (isAdmin(role)) return true;
+  let field = teachingField ?? null;
+  if (isTeacher(role) && field == null && userId) {
+    field = await loadTeachingField(userId);
+  }
+  if (canAccessIeltsStaff(role, field)) return true;
   if (!userId) return false;
   const result = await query(
     "SELECT 1 FROM ielts_access_grants WHERE user_id = $1",

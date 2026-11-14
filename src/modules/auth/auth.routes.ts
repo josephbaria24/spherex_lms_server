@@ -11,6 +11,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
 import { sendMail, appUrl } from "../../lib/mailer.js";
 import { consumeVerificationCode, issueVerificationCode } from "../../lib/email-verification.js";
+import { ensureTeachingFieldColumn } from "../../lib/teaching-field.js";
 
 interface UserRow {
   id: string;
@@ -26,6 +27,7 @@ interface UserRow {
   notify_course_updates: boolean;
   must_change_password: boolean;
   email_verified: boolean;
+  teaching_field: "ielts" | "courses" | null;
   created_at: Date;
 }
 
@@ -77,16 +79,29 @@ function publicUser(row: UserRow) {
     notify_course_updates: row.notify_course_updates,
     must_change_password: row.must_change_password ?? false,
     email_verified: row.email_verified ?? true,
+    teaching_field:
+      row.role === "teacher"
+        ? row.teaching_field === "ielts" || row.teaching_field === "courses"
+          ? row.teaching_field
+          : "courses"
+        : null,
     created_at: row.created_at,
   };
 }
 
 function issueSession(res: Response, user: UserRow): string {
+  const teachingField =
+    user.role === "teacher"
+      ? user.teaching_field === "ielts" || user.teaching_field === "courses"
+        ? user.teaching_field
+        : "courses"
+      : null;
   const token = signSession({
     sub: user.id,
     email: user.email,
     role: user.role,
     email_verified: user.email_verified ?? true,
+    teaching_field: teachingField,
   });
   setSessionCookie(res, token);
   return token;
@@ -116,7 +131,8 @@ function clearSessionCookie(res: Response) {
 const USER_SELECT = `id, email, password_hash, full_name, name, role, status,
   phone, notify_email, notify_training, notify_course_updates,
   COALESCE(must_change_password, false) AS must_change_password,
-  COALESCE(email_verified, true) AS email_verified, created_at`;
+  COALESCE(email_verified, true) AS email_verified,
+  teaching_field, created_at`;
 
 const router = Router();
 
@@ -193,6 +209,7 @@ router.get(
   "/me",
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
+    await ensureTeachingFieldColumn();
     const result = await query<UserRow>(
       `SELECT ${USER_SELECT}
          FROM users
@@ -260,6 +277,7 @@ router.post(
   asyncHandler(async (req: Request, res: Response) => {
     const { email } = forgotSchema.parse(req.body);
 
+    await ensureTeachingFieldColumn();
     const result = await query<UserRow>(
       `SELECT ${USER_SELECT} FROM users WHERE lower(email) = lower($1) LIMIT 1`,
       [email],

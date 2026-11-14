@@ -6,7 +6,7 @@ import { query } from "../../config/db.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/httpError.js";
 import { userHasIeltsAccess } from "../../lib/ielts-access.js";
-import { requireAuth, requireAdmin } from "../../middleware/auth.js";
+import { requireAuth, requireIeltsStaff } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
 
 const EXAM_TYPES = ["CSE", "NLE", "LET", "IELTS", "Other"] as const;
@@ -120,7 +120,11 @@ router.post(
     }
 
     if (material.exam_type === "IELTS") {
-      const allowed = await userHasIeltsAccess(req.user?.sub, req.user?.role);
+      const allowed = await userHasIeltsAccess(
+        req.user?.sub,
+        req.user?.role,
+        req.user?.teaching_field,
+      );
       if (!allowed) {
         throw HttpError.forbidden("Request IELTS access or enter an access code to open this material");
       }
@@ -143,7 +147,7 @@ router.post(
 router.get(
   "/",
   requireAuth,
-  requireAdmin,
+  requireIeltsStaff,
   validate(listQuery, "query"),
   asyncHandler(async (req: Request, res: Response) => {
     const filters = listQuery.parse(req.query);
@@ -181,7 +185,7 @@ router.get(
 router.get(
   "/:id",
   requireAuth,
-  requireAdmin,
+  requireIeltsStaff,
   validate(idParam, "params"),
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = idParam.parse(req.params);
@@ -199,7 +203,7 @@ router.get(
 router.post(
   "/",
   requireAuth,
-  requireAdmin,
+  requireIeltsStaff,
   validate(createReviewerSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const body = createReviewerSchema.parse(req.body);
@@ -229,7 +233,7 @@ router.post(
 router.patch(
   "/:id",
   requireAuth,
-  requireAdmin,
+  requireIeltsStaff,
   validate(idParam, "params"),
   validate(updateReviewerSchema),
   asyncHandler(async (req: Request, res: Response) => {
@@ -263,7 +267,7 @@ router.patch(
 router.delete(
   "/:id",
   requireAuth,
-  requireAdmin,
+  requireIeltsStaff,
   validate(idParam, "params"),
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = idParam.parse(req.params);

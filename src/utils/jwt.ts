@@ -6,6 +6,7 @@ export interface SessionPayload {
   email: string;
   role: "admin" | "teacher" | "student" | "user";
   email_verified?: boolean;
+  teaching_field?: "ielts" | "courses" | null;
 }
 
 export function signSession(payload: SessionPayload): string {
@@ -29,5 +30,9 @@ export function verifySession(token: string): SessionPayload {
     email: payload.email,
     role: payload.role,
     email_verified: payload.email_verified,
+    teaching_field:
+      payload.teaching_field === "ielts" || payload.teaching_field === "courses"
+        ? payload.teaching_field
+        : null,
   };
 }

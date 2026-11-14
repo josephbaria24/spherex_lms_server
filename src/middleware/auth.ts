@@ -2,7 +2,8 @@ import type { Request, Response, NextFunction } from "express";
 import { env } from "../config/env.js";
 import { HttpError } from "../utils/httpError.js";
 import { verifySession, type SessionPayload } from "../utils/jwt.js";
-import { isAdmin, isTeacher } from "../lib/roles.js";
+import { canAccessIeltsStaff, isAdmin, isTeacher } from "../lib/roles.js";
+import { loadTeachingField } from "../lib/teaching-field.js";
 
 export { isSuperAdmin } from "../lib/org-helpers.js";
 
@@ -58,4 +59,30 @@ export function requireTeacher(req: Request, _res: Response, next: NextFunction)
     return next(HttpError.forbidden("Teacher only"));
   }
   next();
+}
+
+/** Platform admin or IELTS-field teacher. */
+export async function requireIeltsStaff(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) return next(HttpError.unauthorized());
+    if (isAdmin(req.user.role)) return next();
+    if (!isTeacher(req.user.role)) {
+      return next(HttpError.forbidden("IELTS staff only"));
+    }
+    let field = req.user.teaching_field ?? null;
+    if (field == null) {
+      field = await loadTeachingField(req.user.sub);
+      req.user.teaching_field = field;
+    }
+    if (!canAccessIeltsStaff(req.user.role, field)) {
+      return next(HttpError.forbidden("IELTS teacher only"));
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
 }

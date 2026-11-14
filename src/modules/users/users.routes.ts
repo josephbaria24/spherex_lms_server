@@ -12,6 +12,10 @@ import {
   touchUserPresence,
 } from "../../lib/user-presence.js";
 import { hashPassword } from "../../utils/password.js";
+import {
+  ensureTeachingFieldColumn,
+  normalizeTeachingField,
+} from "../../lib/teaching-field.js";
 
 interface UserListRow {
   id: string;
@@ -20,6 +24,7 @@ interface UserListRow {
   name: string | null;
   role: "admin" | "teacher" | "student" | "user";
   status: "active" | "inactive" | "suspended";
+  teaching_field: "ielts" | "courses" | null;
   created_at: Date;
   enrollment_count: string;
   last_login_at: Date | null;
@@ -42,6 +47,7 @@ const updateUserSchema = z.object({
   notify_course_updates: z.boolean().optional(),
   role: z.enum(ROLES).optional(),
   status: z.enum(STATUSES).optional(),
+  teaching_field: z.enum(["ielts", "courses"]).nullable().optional(),
 });
 
 const createUserSchema = z.object({
@@ -50,6 +56,7 @@ const createUserSchema = z.object({
   full_name: z.string().trim().min(1).max(120).optional(),
   role: z.enum(ROLES).default("student"),
   status: z.enum(STATUSES).default("active"),
+  teaching_field: z.enum(["ielts", "courses"]).optional(),
   must_change_password: z.boolean().optional(),
 });
 
@@ -119,6 +126,7 @@ router.post(
   requireAdmin,
   validate(createUserSchema),
   asyncHandler(async (req: Request, res: Response) => {
+    await ensureTeachingFieldColumn();
     const body = createUserSchema.parse(req.body);
     const email = body.email.trim().toLowerCase();
     const existing = await query(`SELECT id FROM users WHERE lower(email) = lower($1)`, [email]);
@@ -127,6 +135,7 @@ router.post(
     const fullName = body.full_name?.trim() || email.split("@")[0] || "User";
     const password_hash = await hashPassword(body.password);
     const mustChange = body.must_change_password !== false;
+    const teachingField = normalizeTeachingField(body.role, body.teaching_field);
 
     const result = await query<{
       id: string;
@@ -135,15 +144,16 @@ router.post(
       name: string | null;
       role: string;
       status: string;
+      teaching_field: string | null;
       created_at: Date;
     }>(
       `INSERT INTO users (
          email, password_hash, full_name, name, role, status,
-         email_verified, must_change_password
+         email_verified, must_change_password, teaching_field
        )
-       VALUES ($1, $2, $3, $3, $4, $5, true, $6)
-       RETURNING id, email, full_name, name, role, status, created_at`,
-      [email, password_hash, fullName, body.role, body.status, mustChange],
+       VALUES ($1, $2, $3, $3, $4, $5, true, $6, $7)
+       RETURNING id, email, full_name, name, role, status, teaching_field, created_at`,
+      [email, password_hash, fullName, body.role, body.status, mustChange, teachingField],
     );
 
     const user = result.rows[0];
@@ -166,10 +176,11 @@ router.get(
   requireAuth,
   requireAdmin,
   asyncHandler(async (_req: Request, res: Response) => {
+    await ensureTeachingFieldColumn();
     const presence = await getPresenceSupport();
     const result = await query<UserListRow>(
       `SELECT
-         u.id, u.email, u.full_name, u.name, u.role, u.status, u.created_at,
+         u.id, u.email, u.full_name, u.name, u.role, u.status, u.teaching_field, u.created_at,
          ${presence.lastLogin ? "u.last_login_at" : "NULL::timestamptz AS last_login_at"},
          ${presence.lastSeen ? "u.last_seen_at" : "NULL::timestamptz AS last_seen_at"},
          ${presence.activeCourse ? "u.active_course_id" : "NULL::uuid AS active_course_id"},
@@ -194,6 +205,12 @@ router.get(
           name: r.name,
           role: r.role,
           status: r.status,
+          teaching_field:
+            r.role === "teacher"
+              ? r.teaching_field === "ielts" || r.teaching_field === "courses"
+                ? r.teaching_field
+                : "courses"
+              : null,
           created_at: r.created_at,
           enrollment_count: Number(r.enrollment_count),
           last_login_at: r.last_login_at,
@@ -245,21 +262,36 @@ router.patch(
     const isAdmin = req.user!.role === "admin";
     if (!isSelf && !isAdmin) throw HttpError.forbidden();
 
-    if ((body.role || body.status) && !isAdmin) {
-      throw HttpError.forbidden("Only admins can change role or status");
+    if ((body.role || body.status || body.teaching_field !== undefined) && !isAdmin) {
+      throw HttpError.forbidden("Only admins can change role, status, or teaching field");
     }
+
+    await ensureTeachingFieldColumn();
 
     const fields: string[] = [];
     const values: unknown[] = [];
     let i = 1;
+    const nextRole = body.role;
     for (const [k, v] of Object.entries(body)) {
       if (v === undefined) continue;
+      if (k === "teaching_field") continue;
       fields.push(`${k} = $${i++}`);
       if (k === "phone" && v === "") {
         values.push(null);
       } else {
         values.push(v);
       }
+    }
+    if (isAdmin && (body.teaching_field !== undefined || nextRole)) {
+      const roleForField = nextRole ?? (
+        await query<{ role: string }>(`SELECT role FROM users WHERE id = $1`, [id])
+      ).rows[0]?.role;
+      const teachingField =
+        roleForField === "teacher"
+          ? normalizeTeachingField(roleForField, body.teaching_field ?? undefined)
+          : null;
+      fields.push(`teaching_field = $${i++}`);
+      values.push(teachingField);
     }
     if (fields.length === 0) {
       throw HttpError.badRequest("No fields to update");
@@ -269,7 +301,7 @@ router.patch(
     const result = await query(
       `UPDATE users SET ${fields.join(", ")}, updated_at = now()
          WHERE id = $${i}
-         RETURNING id, email, full_name, name, role, status, phone,
+         RETURNING id, email, full_name, name, role, status, phone, teaching_field,
                    notify_email, notify_training, notify_course_updates, created_at`,
       values,
     );

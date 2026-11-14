@@ -8,7 +8,7 @@ import { query, withTransaction } from "../../config/db.js";
 import { getUploadsRoot } from "../../lib/org-uploads.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/httpError.js";
-import { requireAuth, requireAdmin } from "../../middleware/auth.js";
+import { requireAuth, requireIeltsStaff } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
 import { userHasIeltsAccess } from "../../lib/ielts-access.js";
 import {
@@ -289,7 +289,11 @@ export function createReviewerQuizRouter(): Router {
       const quiz = await getReviewerQuiz(id, false);
       if (!quiz || !quiz.is_published) throw HttpError.notFound("Quiz not found");
       if (quiz.exam_type === "IELTS") {
-        const allowed = await userHasIeltsAccess(req.user?.sub, req.user?.role);
+        const allowed = await userHasIeltsAccess(
+          req.user?.sub,
+          req.user?.role,
+          req.user?.teaching_field,
+        );
         if (!allowed) {
           throw HttpError.forbidden("Enter an IELTS access code to open this training");
         }
@@ -322,7 +326,11 @@ export function createReviewerQuizRouter(): Router {
       const quiz = quizMeta.rows[0];
       if (!quiz || !quiz.is_published) throw HttpError.notFound("Quiz not found");
       if (quiz.exam_type === "IELTS") {
-        const allowed = await userHasIeltsAccess(req.user?.sub, req.user?.role);
+        const allowed = await userHasIeltsAccess(
+          req.user?.sub,
+          req.user?.role,
+          req.user?.teaching_field,
+        );
         if (!allowed) {
           throw HttpError.forbidden("Enter an IELTS access code to open this training");
         }
@@ -372,7 +380,7 @@ export function createReviewerQuizRouter(): Router {
   router.get(
     "/quizzes/attempts",
     requireAuth,
-    requireAdmin,
+    requireIeltsStaff,
     validate(listQuery, "query"),
     asyncHandler(async (req: Request, res: Response) => {
       const filters = listQuery.parse(req.query);
@@ -447,7 +455,7 @@ export function createReviewerQuizRouter(): Router {
   router.get(
     "/quizzes/attempts/:id",
     requireAuth,
-    requireAdmin,
+    requireIeltsStaff,
     validate(idParam, "params"),
     asyncHandler(async (req: Request, res: Response) => {
       const { id } = idParam.parse(req.params);
@@ -620,7 +628,7 @@ export function createReviewerQuizRouter(): Router {
   router.get(
     "/quizzes",
     requireAuth,
-    requireAdmin,
+    requireIeltsStaff,
     validate(listQuery, "query"),
     asyncHandler(async (req: Request, res: Response) => {
       const filters = listQuery.parse(req.query);
@@ -653,7 +661,7 @@ export function createReviewerQuizRouter(): Router {
   router.get(
     "/quizzes/:id",
     requireAuth,
-    requireAdmin,
+    requireIeltsStaff,
     validate(idParam, "params"),
     asyncHandler(async (req: Request, res: Response) => {
       const { id } = idParam.parse(req.params);
@@ -667,7 +675,7 @@ export function createReviewerQuizRouter(): Router {
   router.post(
     "/quizzes",
     requireAuth,
-    requireAdmin,
+    requireIeltsStaff,
     validate(upsertQuizSchema),
     asyncHandler(async (req: Request, res: Response) => {
       const body = upsertQuizSchema.parse(req.body);
@@ -722,7 +730,7 @@ export function createReviewerQuizRouter(): Router {
   router.put(
     "/quizzes/:id",
     requireAuth,
-    requireAdmin,
+    requireIeltsStaff,
     validate(idParam, "params"),
     validate(upsertQuizSchema),
     asyncHandler(async (req: Request, res: Response) => {
@@ -794,7 +802,7 @@ export function createReviewerQuizRouter(): Router {
   router.patch(
     "/quizzes/:id",
     requireAuth,
-    requireAdmin,
+    requireIeltsStaff,
     validate(idParam, "params"),
     validate(
       z.object({
@@ -848,7 +856,7 @@ export function createReviewerQuizRouter(): Router {
   router.post(
     "/import/pdf",
     requireAuth,
-    requireAdmin,
+    requireIeltsStaff,
     handleReviewerPdfImportUpload,
     asyncHandler(async (req: Request, res: Response) => {
       const file = req.file;
@@ -879,7 +887,7 @@ export function createReviewerQuizRouter(): Router {
   router.delete(
     "/quizzes/:id",
     requireAuth,
-    requireAdmin,
+    requireIeltsStaff,
     validate(idParam, "params"),
     asyncHandler(async (req: Request, res: Response) => {
       const { id } = idParam.parse(req.params);
