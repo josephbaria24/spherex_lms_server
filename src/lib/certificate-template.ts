@@ -50,8 +50,9 @@ export type CertificateField = z.infer<typeof certificateFieldSchema>;
 export const saveCertificateTemplateSchema = z.object({
   fields: z.array(certificateFieldSchema).max(40),
   page_size: z.enum(CERTIFICATE_PAGE_SIZES).default("a4-landscape"),
-  canvas_width: z.number().int().min(100).max(8000),
-  canvas_height: z.number().int().min(100).max(8000),
+  // Allow high-DPI artwork (e.g. A4/Letter at 300–600 DPI).
+  canvas_width: z.number().int().min(100).max(16000),
+  canvas_height: z.number().int().min(100).max(16000),
 });
 
 export type CertificateTemplateRecord = {

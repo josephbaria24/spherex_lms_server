@@ -28,6 +28,14 @@ import {
   setCertificateTemplateImage,
 } from "../../lib/certificate-template.js";
 import { extensionForMime, ORG_LOGO_MIME_TYPES } from "../../lib/org-uploads.js";
+import {
+  ensureCertificateRegistryTables,
+  getSerialSettings,
+  importLegacyCertificateCsv,
+  listAdminCertificateCourses,
+  searchCertificateRegistry,
+  upsertSerialSettings,
+} from "../../lib/certificate-registry.js";
 import fs from "node:fs";
 
 const createSchema = z.object({
@@ -40,6 +48,18 @@ const idParam = z.object({ id: z.string().uuid() });
 const courseIdParam = z.object({ courseId: z.string().uuid() });
 const listQuery = z.object({
   user_id: z.string().uuid().optional(),
+});
+
+const registryQuery = z.object({
+  search: z.string().optional(),
+  source: z.enum(["lms", "legacy", "ielts", "all"]).optional(),
+  limit: z.coerce.number().int().min(1).max(500).optional(),
+});
+
+const serialSettingsSchema = z.object({
+  prefix: z.string().min(2).max(40),
+  digits: z.number().int().min(3).max(12),
+  next_number: z.number().int().min(1).max(999999999),
 });
 
 const photoDir = initCertificatePhotoUploadsDirectory();
@@ -83,6 +103,113 @@ router.get(
     const certificate = await lookupCertificateBySerial(serial);
     if (!certificate) throw HttpError.notFound("No certificate matches that serial number.");
     res.json({ certificate });
+  }),
+);
+
+// GET /certificates/registry — public lookup only when searching (privacy)
+router.get(
+  "/registry",
+  validate(registryQuery, "query"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const filters = registryQuery.parse(req.query);
+    const search = filters.search?.trim() ?? "";
+    if (search.length < 2) {
+      res.json({ certificates: [], requires_search: true });
+      return;
+    }
+    await ensureCertificateRegistryTables();
+    const rows = await searchCertificateRegistry({
+      search,
+      source: filters.source ?? "all",
+      limit: Math.min(50, filters.limit ?? 50),
+    });
+    res.json({
+      certificates: rows.map((row) => ({
+        serial_number: row.serial_number,
+        course_title: row.course_title,
+        learner_name: row.learner_name,
+        issued_at: row.issued_at,
+        source: row.source,
+        // email hidden on public tracker
+      })),
+    });
+  }),
+);
+
+// GET /certificates/admin/overview — admin hub
+router.get(
+  "/admin/overview",
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (_req: Request, res: Response) => {
+    const data = await listAdminCertificateCourses();
+    res.json(data);
+  }),
+);
+
+// GET /certificates/admin/registry — admin full registry (includes email)
+router.get(
+  "/admin/registry",
+  requireAuth,
+  requireAdmin,
+  validate(registryQuery, "query"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const filters = registryQuery.parse(req.query);
+    const rows = await searchCertificateRegistry({
+      search: filters.search,
+      source: filters.source ?? "all",
+      limit: filters.limit ?? 200,
+    });
+    res.json({ certificates: rows });
+  }),
+);
+
+// GET /certificates/admin/serial/:courseId
+router.get(
+  "/admin/serial/:courseId",
+  requireAuth,
+  requireAdmin,
+  validate(courseIdParam, "params"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { courseId } = courseIdParam.parse(req.params);
+    const settings = await getSerialSettings(courseId);
+    res.json({ settings });
+  }),
+);
+
+// PUT /certificates/admin/serial/:courseId
+router.put(
+  "/admin/serial/:courseId",
+  requireAuth,
+  requireAdmin,
+  validate(courseIdParam, "params"),
+  validate(serialSettingsSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { courseId } = courseIdParam.parse(req.params);
+    const body = serialSettingsSchema.parse(req.body);
+    const course = await query(`SELECT id FROM courses WHERE id = $1`, [courseId]);
+    if (!course.rows[0]) throw HttpError.notFound("Course not found");
+    const settings = await upsertSerialSettings({
+      course_id: courseId,
+      prefix: body.prefix,
+      digits: body.digits,
+      next_number: body.next_number,
+    });
+    res.json({
+      settings,
+      sample: `${settings.prefix}-${String(settings.next_number).padStart(settings.digits, "0")}`,
+    });
+  }),
+);
+
+// POST /certificates/admin/import-legacy — import PSI-ELA CSV into registry
+router.post(
+  "/admin/import-legacy",
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (_req: Request, res: Response) => {
+    const result = await importLegacyCertificateCsv();
+    res.json(result);
   }),
 );
 
@@ -149,7 +276,8 @@ router.get(
 
 const templateImageUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 },
+  // High-res print artwork (e.g. A4/Letter @ 300 DPI) can exceed 8 MB — store bytes as-is.
+  limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (!ORG_LOGO_MIME_TYPES.has(file.mimetype) || file.mimetype === "image/svg+xml" || file.mimetype === "image/gif") {
       cb(new Error("Upload a PNG, JPG, or WebP certificate background"));
@@ -215,15 +343,20 @@ router.post(
     if (!course.rows[0]) throw HttpError.notFound("Course not found");
     const file = req.file;
     if (!file) throw HttpError.badRequest("Choose a background image");
+    // Keep original format and bytes — do not re-encode or resize (preserves print resolution).
     const ext = extensionForMime(file.mimetype);
     const filename = `background${ext}`;
     clearCertificateTemplateImages(courseId);
     const dir = certificateTemplateDir(courseId);
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(join(dir, filename), file.buffer);
+    fs.writeFileSync(join(dir, filename), file.buffer, { flag: "w" });
     const imagePath = certificateTemplatePublicPath(courseId, filename);
     await setCertificateTemplateImage(courseId, imagePath);
-    res.json({ image_path: imagePath });
+    res.json({
+      image_path: imagePath,
+      bytes: file.buffer.byteLength,
+      mime: file.mimetype,
+    });
   }),
 );
 

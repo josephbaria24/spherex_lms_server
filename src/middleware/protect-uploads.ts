@@ -12,7 +12,12 @@ export function protectUploads(req: Request, _res: Response, next: NextFunction)
   const path = (req.path || "").replace(/^\/+/, "");
   const first = path.split("/")[0] ?? "";
 
-  if (first === "organizations" || first === "courses" || first === "reviewer-groups") {
+  if (
+    first === "organizations" ||
+    first === "courses" ||
+    first === "reviewer-groups" ||
+    first === "ielts-speaking"
+  ) {
     next();
     return;
   }

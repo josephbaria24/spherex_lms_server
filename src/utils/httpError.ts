@@ -21,8 +21,8 @@ export class HttpError extends Error {
   static notFound(message = "Not found") {
     return new HttpError(404, message);
   }
-  static conflict(message = "Conflict") {
-    return new HttpError(409, message);
+  static conflict(message = "Conflict", details?: unknown) {
+    return new HttpError(409, message, details);
   }
   static tooManyRequests(message = "Too many requests") {
     return new HttpError(429, message);

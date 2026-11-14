@@ -1,14 +1,34 @@
 import { Router, type Request, type Response } from "express";
+import { z } from "zod";
 import { asyncHandler } from "../../utils/asyncHandler.js";
-import { requireAuth } from "../../middleware/auth.js";
+import { requireAuth, requireAdmin } from "../../middleware/auth.js";
+import { validate } from "../../middleware/validate.js";
 import {
   buildIeltsCertificatePdf,
   getIeltsCertificate,
   issueIeltsCertificate,
+  listIeltsLearnersProgress,
   loadIeltsProgress,
 } from "../../lib/ielts-certificate.js";
 
 const router = Router();
+
+const learnersQuery = z.object({
+  search: z.string().optional(),
+});
+
+// GET /reviewers/ielts/learners — admin progress monitor
+router.get(
+  "/ielts/learners",
+  requireAuth,
+  requireAdmin,
+  validate(learnersQuery, "query"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { search } = learnersQuery.parse(req.query);
+    const data = await listIeltsLearnersProgress(search);
+    res.json(data);
+  }),
+);
 
 router.get(
   "/ielts/certificate",

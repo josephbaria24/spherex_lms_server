@@ -32,23 +32,9 @@ export function certificatePhotoAbsolutePath(publicPath: string): string | null 
   return join(getUploadsRoot(), "certificate-photos", filename);
 }
 
-async function nextSerialNumber(): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `SPX-CERT-${year}-`;
-  const result = await query<{ serial_number: string }>(
-    `SELECT serial_number FROM certificates
-      WHERE serial_number LIKE $1
-      ORDER BY serial_number DESC
-      LIMIT 1`,
-    [`${prefix}%`],
-  );
-  const last = result.rows[0]?.serial_number;
-  let seq = 1;
-  if (last) {
-    const n = Number(last.slice(prefix.length));
-    if (Number.isFinite(n)) seq = n + 1;
-  }
-  return `${prefix}${String(seq).padStart(5, "0")}`;
+async function nextSerialNumber(courseId: string): Promise<string> {
+  const { allocateCourseSerial } = await import("./certificate-registry.js");
+  return allocateCourseSerial(courseId);
 }
 
 export type IssuedCertificate = {
@@ -89,7 +75,7 @@ export async function issueCertificateIfNeeded(
     return null;
   }
 
-  let serial = await nextSerialNumber();
+  let serial = await nextSerialNumber(courseId);
   let inserted: IssuedCertificate | null = null;
 
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -112,9 +98,9 @@ export async function issueCertificateIfNeeded(
         [userId, courseId],
       );
       if (again.rows[0]) return { ...again.rows[0], created: false };
-      serial = await nextSerialNumber();
+      serial = await nextSerialNumber(courseId);
     } catch {
-      serial = await nextSerialNumber();
+      serial = await nextSerialNumber(courseId);
     }
   }
 
@@ -136,6 +122,29 @@ export async function issueCertificateIfNeeded(
     link: "/achievements",
     referenceId: inserted.id,
   }).catch(() => {});
+
+  try {
+    const learner = await query<{
+      full_name: string | null;
+      name: string | null;
+      email: string;
+    }>(`SELECT full_name, name, email FROM users WHERE id = $1`, [userId]);
+    const u = learner.rows[0];
+    const { upsertRegistryEntry } = await import("./certificate-registry.js");
+    await upsertRegistryEntry({
+      serial_number: inserted.serial_number ?? serial,
+      course_title: courseTitle,
+      learner_name: u?.full_name?.trim() || u?.name?.trim() || u?.email || "Learner",
+      learner_email: u?.email ?? null,
+      issued_at: inserted.issued_at,
+      source: "lms",
+      course_id: courseId,
+      user_id: userId,
+      lms_certificate_id: inserted.id,
+    });
+  } catch (err) {
+    console.error("[certificates] registry sync failed:", err);
+  }
 
   return inserted;
 }
@@ -283,6 +292,7 @@ function renderTemplatePdf(
       const abs = certificateTemplateAbsolutePath(template.image_path);
       if (abs) {
         try {
+          // Place full-page; PDFKit embeds the original image stream (no re-encode/downsample).
           doc.image(abs, 0, 0, { width: pageWidth, height: pageHeight });
         } catch {
           // Missing artwork still prints the text fields.

@@ -19,6 +19,26 @@ async function columnExists(table: string, column: string): Promise<boolean> {
   return result.rows[0]?.exists === true;
 }
 
+export type PresenceSupport = {
+  lastLogin: boolean;
+  lastSeen: boolean;
+  activeCourse: boolean;
+};
+
+export async function getPresenceSupport(): Promise<PresenceSupport> {
+  await ensureUserPresenceColumns();
+  const [lastLogin, lastSeen, activeCourse] = await Promise.all([
+    columnExists("users", "last_login_at"),
+    columnExists("users", "last_seen_at"),
+    columnExists("users", "active_course_id"),
+  ]);
+  return { lastLogin, lastSeen, activeCourse };
+}
+
+function isMissingColumn(err: unknown): boolean {
+  return Boolean(err && typeof err === "object" && "code" in err && (err as { code?: unknown }).code === "42703");
+}
+
 export async function ensureUserPresenceColumns(): Promise<void> {
   if (!presenceColumnsReady) {
     presenceColumnsReady = (async () => {
@@ -56,57 +76,60 @@ export function isUserOnline(lastSeenAt: string | Date | null | undefined): bool
   return Date.now() - seen <= ONLINE_WINDOW_MS;
 }
 
+async function updatePresence(sql: string, values: unknown[]): Promise<void> {
+  try {
+    await query(sql, values);
+  } catch (err) {
+    if (!isMissingColumn(err)) throw err;
+  }
+}
+
 export async function recordLoginPresence(userId: string): Promise<void> {
-  await ensureUserPresenceColumns();
-  await query(
-    `UPDATE users
-        SET last_login_at = now(),
-            last_seen_at = now(),
-            updated_at = now()
-      WHERE id = $1`,
-    [userId],
-  );
+  const support = await getPresenceSupport();
+  const sets = [
+    support.lastLogin ? "last_login_at = now()" : null,
+    support.lastSeen ? "last_seen_at = now()" : null,
+  ].filter(Boolean);
+  if (sets.length === 0) return;
+  await updatePresence(`UPDATE users SET ${sets.join(", ")}, updated_at = now() WHERE id = $1`, [userId]);
 }
 
 export async function touchUserPresence(
   userId: string,
   options?: { courseId?: string | null; clearCourse?: boolean },
 ): Promise<void> {
-  await ensureUserPresenceColumns();
+  const support = await getPresenceSupport();
+  if (!support.lastSeen && !support.activeCourse) return;
+
   if (options?.clearCourse) {
-    await query(
-      `UPDATE users
-          SET last_seen_at = now(),
-              active_course_id = NULL,
-              updated_at = now()
-        WHERE id = $1`,
-      [userId],
-    );
+    const sets = [
+      support.lastSeen ? "last_seen_at = now()" : null,
+      support.activeCourse ? "active_course_id = NULL" : null,
+    ].filter(Boolean);
+    await updatePresence(`UPDATE users SET ${sets.join(", ")}, updated_at = now() WHERE id = $1`, [userId]);
     return;
   }
-  if (options?.courseId) {
-    const course = await query<{ id: string }>(`SELECT id FROM courses WHERE id = $1`, [
-      options.courseId,
-    ]);
+
+  if (options?.courseId && support.activeCourse) {
+    const course = await query<{ id: string }>(`SELECT id FROM courses WHERE id = $1`, [options.courseId]);
     if (!course.rows[0]) {
-      await query(
-        `UPDATE users SET last_seen_at = now(), updated_at = now() WHERE id = $1`,
-        [userId],
-      );
+      if (support.lastSeen) {
+        await updatePresence(`UPDATE users SET last_seen_at = now(), updated_at = now() WHERE id = $1`, [userId]);
+      }
       return;
     }
-    await query(
-      `UPDATE users
-          SET last_seen_at = now(),
-              active_course_id = $2,
-              updated_at = now()
-        WHERE id = $1`,
+    const sets = [
+      support.lastSeen ? "last_seen_at = now()" : null,
+      "active_course_id = $2",
+    ].filter(Boolean);
+    await updatePresence(
+      `UPDATE users SET ${sets.join(", ")}, updated_at = now() WHERE id = $1`,
       [userId, options.courseId],
     );
     return;
   }
-  await query(
-    `UPDATE users SET last_seen_at = now(), updated_at = now() WHERE id = $1`,
-    [userId],
-  );
+
+  if (support.lastSeen) {
+    await updatePresence(`UPDATE users SET last_seen_at = now(), updated_at = now() WHERE id = $1`, [userId]);
+  }
 }

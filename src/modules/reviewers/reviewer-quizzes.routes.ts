@@ -1,12 +1,18 @@
+import { randomUUID } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { Router, type Request, type Response } from "express";
+import multer from "multer";
 import { z } from "zod";
 import { query, withTransaction } from "../../config/db.js";
+import { getUploadsRoot } from "../../lib/org-uploads.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/httpError.js";
 import { requireAuth, requireAdmin } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
 import { userHasIeltsAccess } from "../../lib/ielts-access.js";
 import {
+  isQuestionCorrect,
   marksToIeltsBand,
   scoreReviewerQuiz,
   shouldReportIeltsBand,
@@ -20,7 +26,7 @@ import {
 } from "../../lib/import-reviewer-pdf.js";
 
 const EXAM_TYPES = ["CSE", "NLE", "LET", "IELTS", "Other"] as const;
-const QUESTION_TYPES = ["multiple_choice", "true_false", "fill_blank", "multi_select", "written_response"] as const;
+const QUESTION_TYPES = ["multiple_choice", "true_false", "fill_blank", "multi_select", "written_response", "audio_response"] as const;
 
 const optionSchema = z.object({
   id: z.string().min(1),
@@ -36,12 +42,12 @@ const questionSchema = z
     sort_order: z.number().int().optional(),
   })
   .superRefine((q, ctx) => {
-    if (q.question_type === "written_response") {
+    if (q.question_type === "written_response" || q.question_type === "audio_response") {
       const minimum = Number.parseInt(q.correct_option_id, 10);
       if (!Number.isFinite(minimum) || minimum < 1) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Written responses need a minimum word count",
+          message: "This response needs a minimum length",
           path: ["correct_option_id"],
         });
       }
@@ -174,13 +180,72 @@ async function getReviewerQuiz(quizId: string, includeAnswers: boolean) {
         const minimum = Number.parseInt(q.correct_option_id, 10);
         return { ...base, minimum_words: Number.isFinite(minimum) ? minimum : 1 };
       }
+      if (q.question_type === "audio_response") {
+        const minimum = Number.parseInt(q.correct_option_id, 10);
+        return { ...base, minimum_seconds: Number.isFinite(minimum) ? minimum : 1 };
+      }
       return base;
     }),
   };
 }
 
+const speakingAudioUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const name = file.originalname.toLowerCase();
+    const audioName = /\.(webm|m4a|mp4|mp3|wav|ogg|aac|caf)$/.test(name);
+    if (
+      file.mimetype.startsWith("audio/") ||
+      file.mimetype === "video/webm" ||
+      file.mimetype === "video/mp4" ||
+      file.mimetype === "application/octet-stream" ||
+      audioName
+    ) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error("Upload an audio recording"));
+  },
+});
+
+function speakingAudioExtension(mime: string, filename = ""): string {
+  const name = filename.toLowerCase();
+  const fromName = name.match(/\.(webm|m4a|mp4|mp3|wav|ogg|aac|caf)$/);
+  if (fromName) return fromName[1] === "mp4" || fromName[1] === "caf" || fromName[1] === "aac" ? ".m4a" : `.${fromName[1]}`;
+  if (mime.includes("mp4") || mime.includes("m4a") || mime.includes("aac")) return ".m4a";
+  if (mime.includes("ogg")) return ".ogg";
+  if (mime.includes("wav")) return ".wav";
+  if (mime.includes("mpeg") || mime.includes("mp3")) return ".mp3";
+  return ".webm";
+}
+
 export function createReviewerQuizRouter(): Router {
   const router = Router();
+
+  // POST /reviewers/speaking-recordings — save a microphone take
+  router.post(
+    "/speaking-recordings",
+    speakingAudioUpload.single("audio"),
+    asyncHandler(async (req: Request, res: Response) => {
+      const file = req.file;
+      const seconds = Number(req.body?.seconds);
+      if (!file || file.size < 1000) {
+        throw HttpError.badRequest("The recording is empty. Speak, then stop the recording.");
+      }
+      if (!Number.isFinite(seconds) || seconds < 1) {
+        throw HttpError.badRequest("Could not read the recording length.");
+      }
+      const dir = path.join(getUploadsRoot(), "ielts-speaking");
+      fs.mkdirSync(dir, { recursive: true });
+      const filename = `${randomUUID()}${speakingAudioExtension(file.mimetype, file.originalname)}`;
+      fs.writeFileSync(path.join(dir, filename), file.buffer);
+      res.status(201).json({
+        url: `/uploads/ielts-speaking/${filename}`,
+        seconds: Math.round(seconds),
+      });
+    }),
+  );
 
   // GET /reviewers/public/quizzes
   router.get(
@@ -276,21 +341,25 @@ export function createReviewerQuizRouter(): Router {
       if (questions.rows.length === 0) throw HttpError.badRequest("Quiz has no questions");
 
       const result = scoreReviewerQuiz(questions.rows, answers);
-      const passed = result.score >= quiz.passing_score;
-      const band_score = shouldReportIeltsBand(quiz.exam_type, quiz.category)
-        ? marksToIeltsBand(result.correct, result.total)
-        : null;
+      const pendingReview = questions.rows.every((question) => question.question_type === "audio_response");
+      const passed = pendingReview ? false : result.score >= quiz.passing_score;
+      const band_score = pendingReview
+        ? null
+        : shouldReportIeltsBand(quiz.exam_type, quiz.category)
+          ? marksToIeltsBand(result.correct, result.total)
+          : null;
 
       const userId = req.user?.sub ?? null;
       await query(
         `INSERT INTO reviewer_quiz_attempts (quiz_id, user_id, score, passed, band_score, answers)
          VALUES ($1, $2, $3, $4, $5, $6)`,
-        [id, userId, result.score, passed, band_score, JSON.stringify(answers)],
+        [id, userId, pendingReview ? 0 : result.score, passed, band_score, JSON.stringify(answers)],
       );
 
       res.json({
-        score: result.score,
+        score: pendingReview ? null : result.score,
         passed,
+        pending_review: pendingReview,
         passing_score: quiz.passing_score,
         correct: result.correct,
         total: result.total,
@@ -347,8 +416,16 @@ export function createReviewerQuizRouter(): Router {
         `SELECT a.id, a.score, a.passed, a.band_score, a.created_at,
                 q.id AS quiz_id, q.title AS quiz_title, q.category, q.exam_type,
                 g.id AS group_id, g.title AS group_title,
+                COALESCE(NULLIF(g.subject, ''), NULLIF(g.title, ''), q.category, 'Practice') AS skill,
                 u.id AS user_id, u.email AS user_email,
-                COALESCE(NULLIF(u.full_name, ''), NULLIF(u.name, ''), u.email, 'Guest') AS user_name
+                COALESCE(NULLIF(u.full_name, ''), NULLIF(u.name, ''), u.email, 'Guest') AS user_name,
+                (
+                  NOT a.passed
+                  AND EXISTS (
+                    SELECT 1 FROM reviewer_quiz_questions qq
+                     WHERE qq.quiz_id = q.id AND qq.question_type = 'audio_response'
+                  )
+                ) AS pending_review
            FROM reviewer_quiz_attempts a
            JOIN reviewer_quizzes q ON q.id = a.quiz_id
            LEFT JOIN reviewer_quiz_groups g ON g.id = q.group_id
@@ -362,6 +439,179 @@ export function createReviewerQuizRouter(): Router {
       res.json({
         summary: summary.rows[0] ?? { total: 0, passed: 0, avg_score: null, avg_band: null },
         attempts: attempts.rows,
+      });
+    }),
+  );
+
+  // GET /reviewers/quizzes/attempts/:id — admin attempt answers
+  router.get(
+    "/quizzes/attempts/:id",
+    requireAuth,
+    requireAdmin,
+    validate(idParam, "params"),
+    asyncHandler(async (req: Request, res: Response) => {
+      const { id } = idParam.parse(req.params);
+      const attemptResult = await query<{
+        id: string;
+        quiz_id: string;
+        score: number;
+        passed: boolean;
+        band_score: string | number | null;
+        created_at: Date;
+        answers: Record<string, string> | string | null;
+        quiz_title: string;
+        category: string | null;
+        exam_type: string;
+        user_email: string | null;
+        user_name: string;
+      }>(
+        `SELECT a.id, a.quiz_id, a.score, a.passed, a.band_score, a.created_at, a.answers,
+                q.title AS quiz_title, q.category, q.exam_type,
+                u.email AS user_email,
+                COALESCE(NULLIF(u.full_name, ''), NULLIF(u.name, ''), u.email, 'Guest') AS user_name
+           FROM reviewer_quiz_attempts a
+           JOIN reviewer_quizzes q ON q.id = a.quiz_id
+           LEFT JOIN users u ON u.id = a.user_id
+          WHERE a.id = $1`,
+        [id],
+      );
+      const attempt = attemptResult.rows[0];
+      if (!attempt) throw HttpError.notFound("Attempt not found");
+
+      const rawAnswers = attempt.answers;
+      const answers: Record<string, string> =
+        rawAnswers && typeof rawAnswers === "object" && !Array.isArray(rawAnswers)
+          ? (rawAnswers as Record<string, string>)
+          : typeof rawAnswers === "string"
+            ? (() => {
+                try {
+                  return JSON.parse(rawAnswers) as Record<string, string>;
+                } catch {
+                  return {};
+                }
+              })()
+            : {};
+
+      const questions = await query<{
+        id: string;
+        sort_order: number;
+        prompt: string;
+        question_type: string;
+        options: { id: string; text: string }[] | string | null;
+        correct_option_id: string;
+      }>(
+        `SELECT id, sort_order, prompt, question_type, options, correct_option_id
+           FROM reviewer_quiz_questions
+          WHERE quiz_id = $1
+          ORDER BY sort_order ASC, id ASC`,
+        [attempt.quiz_id],
+      );
+
+      const items = questions.rows.map((question, index) => {
+        const options = Array.isArray(question.options)
+          ? question.options
+          : typeof question.options === "string"
+            ? (() => {
+                try {
+                  return JSON.parse(question.options) as { id: string; text: string }[];
+                } catch {
+                  return [];
+                }
+              })()
+            : [];
+        const given = answers[question.id] ?? "";
+        const optionLabel = (value: string) => {
+          if (!value) return "";
+          if (question.question_type === "multi_select") {
+            return value
+              .split(",")
+              .map((part) => part.trim())
+              .filter(Boolean)
+              .map((id) => options.find((o) => o.id === id)?.text ?? id)
+              .join(", ");
+          }
+          if (
+            question.question_type === "multiple_choice" ||
+            question.question_type === "true_false"
+          ) {
+            return options.find((o) => o.id === value)?.text ?? value;
+          }
+          return value;
+        };
+
+        let learnerDisplay = optionLabel(given) || "—";
+        let correctDisplay = optionLabel(question.correct_option_id);
+        let audioUrl: string | null = null;
+        let audioSeconds: number | null = null;
+
+        if (question.question_type === "written_response") {
+          correctDisplay = `Min ${question.correct_option_id} words`;
+        } else if (question.question_type === "audio_response") {
+          correctDisplay = `Min ${question.correct_option_id}s`;
+          try {
+            const parsed = JSON.parse(given) as { url?: unknown; seconds?: unknown };
+            audioUrl = typeof parsed.url === "string" ? parsed.url : null;
+            audioSeconds = Number(parsed.seconds);
+            if (!Number.isFinite(audioSeconds)) audioSeconds = null;
+            learnerDisplay = audioUrl
+              ? `Recording${audioSeconds != null ? ` · ${audioSeconds}s` : ""}`
+              : given || "—";
+          } catch {
+            learnerDisplay = given || "—";
+          }
+        } else if (question.question_type === "fill_blank") {
+          correctDisplay = question.correct_option_id;
+          learnerDisplay = given || "—";
+        }
+
+        return {
+          id: question.id,
+          number: index + 1,
+          prompt: question.prompt,
+          question_type: question.question_type,
+          learner_answer: learnerDisplay,
+          correct_answer: correctDisplay,
+          raw_answer: given || null,
+          audio_url: audioUrl,
+          audio_seconds: audioSeconds,
+          is_correct: isQuestionCorrect(
+            {
+              id: question.id,
+              question_type: question.question_type,
+              correct_option_id: question.correct_option_id,
+              options,
+            },
+            given || undefined,
+          ),
+        };
+      });
+
+      const scored = scoreReviewerQuiz(
+        questions.rows.map((q) => ({
+          id: q.id,
+          question_type: q.question_type,
+          correct_option_id: q.correct_option_id,
+          options: Array.isArray(q.options) ? q.options : [],
+        })),
+        answers,
+      );
+
+      res.json({
+        attempt: {
+          id: attempt.id,
+          quiz_id: attempt.quiz_id,
+          quiz_title: attempt.quiz_title,
+          category: attempt.category,
+          exam_type: attempt.exam_type,
+          score: attempt.score,
+          passed: attempt.passed,
+          band_score: attempt.band_score,
+          created_at: attempt.created_at,
+          user_name: attempt.user_name,
+          user_email: attempt.user_email,
+        },
+        summary: scored,
+        items,
       });
     }),
   );

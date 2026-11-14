@@ -39,6 +39,22 @@ export function isQuestionCorrect(
     return wordCount(answer) >= minimum;
   }
 
+  if (type === "audio_response") {
+    const minimum = Number.parseInt(question.correct_option_id, 10);
+    let parsed: { url?: unknown; seconds?: unknown };
+    try {
+      parsed = JSON.parse(answer) as { url?: unknown; seconds?: unknown };
+    } catch {
+      return false;
+    }
+    const seconds = Number(parsed.seconds);
+    const url = typeof parsed.url === "string" ? parsed.url : "";
+    if (!url.startsWith("/uploads/ielts-speaking/")) return false;
+    if (!Number.isFinite(seconds) || seconds < 1) return false;
+    if (!Number.isFinite(minimum) || minimum < 1) return true;
+    return seconds >= minimum;
+  }
+
   if (type === "fill_blank") {
     const given = normalizeBlank(answer);
     if (!given) return false;

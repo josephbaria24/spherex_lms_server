@@ -329,8 +329,8 @@ router.patch(
     const { id } = idParam.parse(req.params);
     const body = updateEnrollmentSchema.parse(req.body);
 
-    const existing = await query<{ user_id: string }>(
-      "SELECT user_id FROM enrollments WHERE id = $1",
+    const existing = await query<{ user_id: string; completed: boolean }>(
+      "SELECT user_id, completed FROM enrollments WHERE id = $1",
       [id],
     );
     const row = existing.rows[0];
@@ -338,6 +338,7 @@ router.patch(
     if (row.user_id !== req.user!.sub && req.user!.role !== "admin") {
       throw HttpError.forbidden();
     }
+    const wasCompleted = row.completed;
 
     const fields: string[] = [];
     const values: unknown[] = [];
@@ -371,7 +372,11 @@ router.patch(
           "../../lib/certificates.js"
         );
         await issueCertificateIfNeeded(enrollment.user_id, enrollment.course_id);
-        await notifyAdminsMissingCertificate(enrollment.user_id, enrollment.course_id, id);
+        if (!wasCompleted) {
+          await notifyAdminsMissingCertificate(enrollment.user_id, enrollment.course_id, id);
+          const { notifyStaffCourseCompleted } = await import("../../lib/completion-alerts.js");
+          await notifyStaffCourseCompleted(enrollment.user_id, enrollment.course_id);
+        }
       } catch {
         // ignore certificate side-effects
       }

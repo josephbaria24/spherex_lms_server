@@ -164,7 +164,7 @@ CREATE TABLE IF NOT EXISTS reviewer_quiz_questions (
   sort_order        INTEGER NOT NULL DEFAULT 0,
   prompt            TEXT NOT NULL,
   question_type     TEXT NOT NULL DEFAULT 'multiple_choice'
-                    CHECK (question_type IN ('multiple_choice', 'true_false', 'fill_blank', 'multi_select', 'written_response')),
+                    CHECK (question_type IN ('multiple_choice', 'true_false', 'fill_blank', 'multi_select', 'written_response', 'audio_response')),
   options           JSONB NOT NULL DEFAULT '[]',
   correct_option_id TEXT NOT NULL,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now()

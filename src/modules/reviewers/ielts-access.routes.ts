@@ -43,8 +43,11 @@ const answerKeysSchema = z.object({
   show_answer_keys: z.boolean(),
 });
 
+const MOCK_IDS = ["mock-1", "mock-2", "mock-3", "mock-4", "mock-5"] as const;
+
 const mockSessionSchema = z.object({
   mock_session_open: z.boolean(),
+  open_mock_ids: z.array(z.enum(MOCK_IDS)).optional(),
 });
 
 const trackInterestSchema = z.object({
@@ -63,15 +66,26 @@ async function ensureTrackInterestTable(): Promise<void> {
   );
 }
 
+function normalizeOpenMockIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => String(item))
+    .filter((id): id is (typeof MOCK_IDS)[number] =>
+      (MOCK_IDS as readonly string[]).includes(id),
+    );
+}
+
 async function readCatalogSettings(): Promise<{
   show_answer_keys: boolean;
   mock_session_open: boolean;
+  open_mock_ids: string[];
 }> {
   await query(
     `CREATE TABLE IF NOT EXISTS ielts_catalog_settings (
        id                SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
        show_answer_keys  BOOLEAN NOT NULL DEFAULT false,
        mock_session_open BOOLEAN NOT NULL DEFAULT false,
+       open_mock_ids     JSONB NOT NULL DEFAULT '[]'::jsonb,
        updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
      )`,
   );
@@ -80,16 +94,26 @@ async function readCatalogSettings(): Promise<{
        ADD COLUMN IF NOT EXISTS mock_session_open BOOLEAN NOT NULL DEFAULT false`,
   );
   await query(
+    `ALTER TABLE ielts_catalog_settings
+       ADD COLUMN IF NOT EXISTS open_mock_ids JSONB NOT NULL DEFAULT '[]'::jsonb`,
+  );
+  await query(
     `INSERT INTO ielts_catalog_settings (id)
      VALUES (1)
      ON CONFLICT (id) DO NOTHING`,
   );
-  const result = await query<{ show_answer_keys: boolean; mock_session_open: boolean }>(
-    `SELECT show_answer_keys, mock_session_open FROM ielts_catalog_settings WHERE id = 1`,
+  const result = await query<{
+    show_answer_keys: boolean;
+    mock_session_open: boolean;
+    open_mock_ids: unknown;
+  }>(
+    `SELECT show_answer_keys, mock_session_open, open_mock_ids
+       FROM ielts_catalog_settings WHERE id = 1`,
   );
   return {
     show_answer_keys: Boolean(result.rows[0]?.show_answer_keys),
     mock_session_open: Boolean(result.rows[0]?.mock_session_open),
+    open_mock_ids: normalizeOpenMockIds(result.rows[0]?.open_mock_ids),
   };
 }
 
@@ -110,17 +134,30 @@ router.patch(
   requireAdmin,
   validate(mockSessionSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    const { mock_session_open } = mockSessionSchema.parse(req.body);
+    const body = mockSessionSchema.parse(req.body);
     await readCatalogSettings();
-    const updated = await query<{ mock_session_open: boolean }>(
+    const openMockIds = body.mock_session_open
+      ? normalizeOpenMockIds(body.open_mock_ids ?? MOCK_IDS)
+      : [];
+    if (body.mock_session_open && openMockIds.length === 0) {
+      throw HttpError.badRequest("Choose at least one mock test to open");
+    }
+    const updated = await query<{
+      mock_session_open: boolean;
+      open_mock_ids: unknown;
+    }>(
       `UPDATE ielts_catalog_settings
           SET mock_session_open = $1,
+              open_mock_ids = $2::jsonb,
               updated_at = now()
         WHERE id = 1
-        RETURNING mock_session_open`,
-      [mock_session_open],
+        RETURNING mock_session_open, open_mock_ids`,
+      [body.mock_session_open, JSON.stringify(openMockIds)],
     );
-    res.json({ mock_session_open: Boolean(updated.rows[0]?.mock_session_open) });
+    res.json({
+      mock_session_open: Boolean(updated.rows[0]?.mock_session_open),
+      open_mock_ids: normalizeOpenMockIds(updated.rows[0]?.open_mock_ids),
+    });
   }),
 );
 
@@ -277,9 +314,10 @@ router.post(
       referenceId: requestId,
     });
 
+    const { STAFF_COMPLETION_EMAILS } = await import("../../lib/completion-alerts.js");
     const recipients = [
       ...new Set(
-        [env.supportEmail, "jlb@petrosphere.com.ph", "jmm@petrosphere.com.ph"]
+        [env.supportEmail, ...STAFF_COMPLETION_EMAILS]
           .map((address) => address.trim().toLowerCase())
           .filter(Boolean),
       ),

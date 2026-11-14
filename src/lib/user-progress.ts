@@ -1,5 +1,6 @@
 import { query, withTransaction } from "../config/db.js";
 import { HttpError } from "../utils/httpError.js";
+import { getIeltsUserMonitor } from "./ielts-certificate.js";
 import { ensureQuizAttemptCyclesTable } from "./quiz-attempt-policy.js";
 import { meshNameFromSuspendData } from "./storyline-resume.js";
 
@@ -72,6 +73,7 @@ export async function getUserActivity(userId: string) {
     evaluationsGiven,
     certificates,
     recentTimeline,
+    ielts,
   ] = await Promise.all([
     query(
       `SELECT e.id, e.course_id, c.title AS course_title, e.progress_percent, e.completed,
@@ -259,7 +261,25 @@ export async function getUserActivity(userId: string) {
        LIMIT 40`,
       [userId],
     ),
+    getIeltsUserMonitor(userId).catch((err) => {
+      console.error("[user-progress] IELTS monitor failed:", err);
+      return null;
+    }),
   ]);
+
+  const ieltsSafe = ielts ?? {
+    total_sets: 0,
+    passed_sets: 0,
+    completion_pct: 0,
+    attempts: 0,
+    avg_band: null,
+    pending_speaking: 0,
+    last_activity: null,
+    certificate: null,
+    skills: [],
+    tests: [],
+    recent_attempts: [],
+  };
 
   const completedCourses = enrollments.rows.filter((e) => e.completed).length;
   const scormWithResponses = scormRecords.rows.map((row) => {
@@ -296,12 +316,16 @@ export async function getUserActivity(userId: string) {
       lesson_completions: lessonProgress.rows.filter((r) => r.completed).length,
       scorm_sessions: scormRecords.rows.length,
       quiz_attempts: quizAttempts.rows.length,
-      certificates: certificates.rows.length,
+      certificates: certificates.rows.length + (ieltsSafe.certificate ? 1 : 0),
       organizations: organizations.rows.length,
       courses_teaching: teaching.rows.length,
       materials_uploaded: materialsUploaded.rows.length,
       lessons_created: lessonsCreated.rows.length,
       evaluations_given: evaluationsGiven.rows.length,
+      ielts_attempts: ieltsSafe.attempts,
+      ielts_passed_sets: ieltsSafe.passed_sets,
+      ielts_total_sets: ieltsSafe.total_sets,
+      ielts_pending_speaking: ieltsSafe.pending_speaking,
     },
     enrollments: enrollments.rows,
     lesson_progress: lessonProgress.rows,
@@ -314,6 +338,7 @@ export async function getUserActivity(userId: string) {
     evaluations_given: evaluationsGiven.rows,
     certificates: certificates.rows,
     recent_timeline: recentTimeline.rows,
+    ielts: ieltsSafe,
   };
 }
 

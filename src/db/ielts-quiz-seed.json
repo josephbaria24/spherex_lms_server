@@ -25,7 +25,7 @@
     {
       "title": "Speaking",
       "subject": "Speaking",
-      "description": "Speaking Parts 1, 2, and 3. Say the answer aloud, then type what you said.",
+      "description": "Speaking Parts 1, 2, and 3. Record your answer with the microphone.",
       "accent_color": "rose",
       "sort_order": 40
     }
@@ -816,16 +816,16 @@
     {
       "group_subject": "Speaking",
       "title": "IELTS Speaking — Part 1: Where you live",
-      "description": "Answer aloud for about 4–5 minutes, then type what you said. Length is checked so the attempt is saved. It is not an examiner score.",
+      "description": "Record your answers. Part 1 is usually 4–5 minutes. At least 60 seconds is required. This is not an examiner score.",
       "exam_type": "IELTS",
       "category": "Speaking - Part 1",
       "passing_score": 100,
-      "time_limit_seconds": 300,
+      "time_limit_seconds": 360,
       "passage_html": "The examiner asks about familiar topics. Answer each question in two or three sentences.\n\n1. Do you live in a house or an apartment?\n2. What do you like most about your neighborhood?\n3. How do you usually travel to work or school?\n4. What would you change about the place where you live?",
       "questions": [
         {
-          "prompt": "Type the answers you gave aloud. Cover all four questions. At least 60 words.",
-          "question_type": "written_response",
+          "prompt": "Record your answers to all four questions. Speak for at least 60 seconds.",
+          "question_type": "audio_response",
           "options": [],
           "correct_option_id": "60"
         }
@@ -834,36 +834,36 @@
     {
       "group_subject": "Speaking",
       "title": "IELTS Speaking — Part 2: A skill you want",
-      "description": "You have 1 minute to prepare and should speak for about 2 minutes. Then type what you said. This is not an examiner score.",
+      "description": "Prepare for about 1 minute, then record a long turn of about 2 minutes. At least 60 seconds is required. This is not an examiner score.",
       "exam_type": "IELTS",
       "category": "Speaking - Part 2",
       "passing_score": 100,
-      "time_limit_seconds": 180,
+      "time_limit_seconds": 240,
       "passage_html": "Describe a skill you would like to learn.\n\nYou should say:\n- what the skill is\n- how you would learn it\n- why you want to learn it\n- and explain how it might help you in the future.",
       "questions": [
         {
-          "prompt": "Type the long turn you spoke. At least 120 words.",
-          "question_type": "written_response",
+          "prompt": "Record your long turn. Speak for at least 60 seconds.",
+          "question_type": "audio_response",
           "options": [],
-          "correct_option_id": "120"
+          "correct_option_id": "60"
         }
       ]
     },
     {
       "group_subject": "Speaking",
       "title": "IELTS Speaking — Part 3: Learning skills",
-      "description": "Discussion questions linked to Part 2. Speak first, then type your answers. This is not an examiner score.",
+      "description": "Record your discussion answers. Develop each point. At least 60 seconds is required. This is not an examiner score.",
       "exam_type": "IELTS",
       "category": "Speaking - Part 3",
       "passing_score": 100,
-      "time_limit_seconds": 300,
+      "time_limit_seconds": 360,
       "passage_html": "1. Why do adults choose to learn new skills?\n2. Should schools spend more time on practical skills or academic subjects?\n3. How has the internet changed the way people learn?",
       "questions": [
         {
-          "prompt": "Type the answers you gave aloud. Develop each point. At least 100 words.",
-          "question_type": "written_response",
+          "prompt": "Record your answers to all three questions. Speak for at least 60 seconds.",
+          "question_type": "audio_response",
           "options": [],
-          "correct_option_id": "100"
+          "correct_option_id": "60"
         }
       ]
     }

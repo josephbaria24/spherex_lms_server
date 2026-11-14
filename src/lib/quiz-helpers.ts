@@ -204,8 +204,13 @@ export async function updateEnrollmentProgress(
       );
       await issueCertificateIfNeeded(userId, courseId);
       const enrollmentId = prior.rows[0]?.id;
-      if (enrollmentId && !prior.rows[0]?.completed) {
+      const firstCompletion = !prior.rows[0]?.completed;
+      if (enrollmentId && firstCompletion) {
         await notifyAdminsMissingCertificate(userId, courseId, enrollmentId);
+      }
+      if (firstCompletion) {
+        const { notifyStaffCourseCompleted } = await import("./completion-alerts.js");
+        await notifyStaffCourseCompleted(userId, courseId);
       }
     } catch {
       // Completion must succeed even if certificate side-effects fail

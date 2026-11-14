@@ -39,6 +39,7 @@ import { initCourseUploadsDirectory } from "./lib/course-uploads.js";
 import { initReviewerGroupUploadsDirectory } from "./lib/reviewer-group-uploads.js";
 import { initReceiptUploadsDirectory } from "./lib/payment-requests.js";
 import { initCertificatePhotoUploadsDirectory } from "./lib/certificates.js";
+import { ensureCertificateRegistryTables } from "./lib/certificate-registry.js";
 
 export function createApp(): Express {
   const app = express();
@@ -50,6 +51,9 @@ export function createApp(): Express {
   initReviewerGroupUploadsDirectory();
   initReceiptUploadsDirectory();
   initCertificatePhotoUploadsDirectory();
+  void ensureCertificateRegistryTables().catch((err) => {
+    console.error("[boot] certificate registry tables:", err);
+  });
 
   app.disable("x-powered-by");
   app.set("trust proxy", 1);
