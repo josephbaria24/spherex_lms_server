@@ -209,7 +209,8 @@ router.get(
   "/me",
   requireAuth,
   asyncHandler(async (req: Request, res: Response) => {
-    await ensureTeachingFieldColumn();
+    // Schema ensure is best-effort at boot; do not block /me on ALTER privileges.
+    void ensureTeachingFieldColumn();
     const result = await query<UserRow>(
       `SELECT ${USER_SELECT}
          FROM users
