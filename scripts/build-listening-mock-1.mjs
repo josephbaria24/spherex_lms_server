@@ -425,7 +425,7 @@ const seed = {
     category: "Listening - Mock Test",
     passing_score: 60,
     time_limit_seconds: 2400,
-    audio_url: "/ielts-academic/academic-mock-1-listening.mp3",
+    audio_url: "/media/ielts/academic-mock-1-listening.mp3",
     questions,
   },
 };
