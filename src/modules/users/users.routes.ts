@@ -5,7 +5,12 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/httpError.js";
 import { requireAuth, requireAdmin } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
-import { getUserActivity, resetUserProgress } from "../../lib/user-progress.js";
+import {
+  forceCompleteLessons,
+  getUserActivity,
+  getUserCourseLessonOutline,
+  resetUserProgress,
+} from "../../lib/user-progress.js";
 import {
   getPresenceSupport,
   isUserOnline,
@@ -71,6 +76,17 @@ const progressQuery = z.object({
   course_id: z.string().uuid().optional(),
 });
 
+const courseIdParam = z.object({
+  id: z.string().uuid(),
+  courseId: z.string().uuid(),
+});
+
+const forceCompleteSchema = z.object({
+  course_id: z.string().uuid(),
+  lesson_ids: z.array(z.string().uuid()).min(1).max(200),
+  include_prior: z.boolean().optional(),
+});
+
 const presenceSchema = z.object({
   course_id: z.string().uuid().nullable().optional(),
   clear_course: z.boolean().optional(),
@@ -101,6 +117,36 @@ router.get(
     const { id } = idParam.parse(req.params);
     const activity = await getUserActivity(id);
     res.json(activity);
+  }),
+);
+
+// GET /users/:id/courses/:courseId/lessons — outline + completion for progress adjuster
+router.get(
+  "/:id/courses/:courseId/lessons",
+  requireAuth,
+  requireAdmin,
+  validate(courseIdParam, "params"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id, courseId } = courseIdParam.parse(req.params);
+    const outline = await getUserCourseLessonOutline(id, courseId);
+    res.json(outline);
+  }),
+);
+
+// POST /users/:id/progress/complete — force-complete lessons/modules for unlock + %
+router.post(
+  "/:id/progress/complete",
+  requireAuth,
+  requireAdmin,
+  validate(idParam, "params"),
+  validate(forceCompleteSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = idParam.parse(req.params);
+    const body = forceCompleteSchema.parse(req.body);
+    const result = await forceCompleteLessons(id, body.course_id, body.lesson_ids, {
+      include_prior: body.include_prior,
+    });
+    res.json({ ok: true, ...result });
   }),
 );
 

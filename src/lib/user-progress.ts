@@ -1,7 +1,9 @@
 import { query, withTransaction } from "../config/db.js";
 import { HttpError } from "../utils/httpError.js";
 import { getIeltsUserMonitor } from "./ielts-certificate.js";
+import { LESSON_COMPLETED_CASE } from "./lesson-access.js";
 import { ensureQuizAttemptCyclesTable } from "./quiz-attempt-policy.js";
+import { markLessonComplete, updateEnrollmentProgress } from "./quiz-helpers.js";
 import { meshNameFromSuspendData } from "./storyline-resume.js";
 
 type ScormInteraction = {
@@ -339,6 +341,218 @@ export async function getUserActivity(userId: string) {
     certificates: certificates.rows,
     recent_timeline: recentTimeline.rows,
     ielts: ieltsSafe,
+  };
+}
+
+type CourseLessonOutlineRow = {
+  id: string;
+  title: string;
+  content_type: string;
+  parent_lesson_id: string | null;
+  parent_title: string | null;
+  sort_order: number;
+  completed: boolean;
+  completed_at: Date | null;
+};
+
+/** Published lessons for a user+course with completion flags (admin progress adjuster). */
+export async function getUserCourseLessonOutline(userId: string, courseId: string) {
+  await assertUserExists(userId);
+  const enrollment = await query(
+    `SELECT e.id, e.progress_percent, e.completed, c.title AS course_title,
+            c.require_sequential_lessons
+       FROM enrollments e
+       JOIN courses c ON c.id = e.course_id
+      WHERE e.user_id = $1 AND e.course_id = $2`,
+    [userId, courseId],
+  );
+  if (!enrollment.rows[0]) throw HttpError.notFound("Enrollment not found");
+
+  const lessons = await query<CourseLessonOutlineRow>(
+    `SELECT l.id, l.title, l.content_type, l.parent_lesson_id, l.sort_order,
+            p.title AS parent_title,
+            (${LESSON_COMPLETED_CASE}) AS completed,
+            COALESCE(lp.completed_at, CASE
+              WHEN lower(COALESCE(sd.lesson_status, '')) IN ('completed', 'passed')
+              THEN sd.updated_at ELSE NULL END) AS completed_at
+       FROM lessons l
+       LEFT JOIN lessons p ON p.id = l.parent_lesson_id
+       LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.user_id = $1
+       LEFT JOIN scorm_data sd ON sd.lesson_id = l.id AND sd.user_id = $1
+      WHERE l.course_id = $2 AND l.status = 'published'
+      ORDER BY l.sort_order, l.created_at`,
+    [userId, courseId],
+  );
+
+  const modules: Array<{
+    id: string;
+    title: string;
+    lesson_ids: string[];
+    completed_count: number;
+    total_count: number;
+    completed: boolean;
+  }> = [];
+  const moduleIndex = new Map<string, number>();
+
+  for (const lesson of lessons.rows) {
+    const moduleId = lesson.parent_lesson_id ?? lesson.id;
+    const moduleTitle = lesson.parent_lesson_id
+      ? (lesson.parent_title ?? "Module")
+      : lesson.title;
+    let idx = moduleIndex.get(moduleId);
+    if (idx == null) {
+      idx = modules.length;
+      moduleIndex.set(moduleId, idx);
+      modules.push({
+        id: moduleId,
+        title: moduleTitle,
+        lesson_ids: [],
+        completed_count: 0,
+        total_count: 0,
+        completed: false,
+      });
+    }
+    const mod = modules[idx]!;
+    if (!mod.lesson_ids.includes(lesson.id)) {
+      mod.lesson_ids.push(lesson.id);
+      mod.total_count += 1;
+      if (lesson.completed) mod.completed_count += 1;
+    }
+    // Parent root lesson itself may also appear as a row.
+    if (lesson.parent_lesson_id == null && lesson.id === moduleId) {
+      // already counted
+    }
+  }
+
+  for (const mod of modules) {
+    mod.completed = mod.total_count > 0 && mod.completed_count >= mod.total_count;
+  }
+
+  return {
+    course: {
+      id: courseId,
+      title: enrollment.rows[0].course_title as string,
+      require_sequential_lessons: Boolean(enrollment.rows[0].require_sequential_lessons),
+      progress_percent: Number(enrollment.rows[0].progress_percent ?? 0),
+      completed: Boolean(enrollment.rows[0].completed),
+    },
+    lessons: lessons.rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      content_type: row.content_type,
+      parent_lesson_id: row.parent_lesson_id,
+      parent_title: row.parent_title,
+      sort_order: row.sort_order,
+      completed: Boolean(row.completed),
+      completed_at: row.completed_at,
+    })),
+    modules,
+  };
+}
+
+async function forceCompleteScormRow(
+  userId: string,
+  lessonId: string,
+  courseId: string,
+  contentType: string,
+) {
+  const existing = await query(
+    `SELECT lesson_id FROM scorm_data WHERE user_id = $1 AND lesson_id = $2`,
+    [userId, lessonId],
+  );
+  if (contentType !== "articulate" && !existing.rows[0]) return;
+
+  const cmi = {
+    "cmi.core.lesson_status": "completed",
+    "cmi.completion_status": "completed",
+  };
+  await query(
+    `INSERT INTO scorm_data (user_id, lesson_id, course_id, cmi, lesson_status, updated_at)
+     VALUES ($1, $2, $3, $4::jsonb, 'completed', now())
+     ON CONFLICT (user_id, lesson_id) DO UPDATE SET
+       lesson_status = 'completed',
+       cmi = COALESCE(scorm_data.cmi, '{}'::jsonb) || EXCLUDED.cmi,
+       updated_at = now()`,
+    [userId, lessonId, courseId, JSON.stringify(cmi)],
+  );
+}
+
+/**
+ * Admin force-complete selected lessons (and optionally all earlier ones) so sequential
+ * unlock and enrollment % stay consistent after a skip.
+ */
+export async function forceCompleteLessons(
+  userId: string,
+  courseId: string,
+  lessonIds: string[],
+  options?: { include_prior?: boolean },
+) {
+  await assertUserExists(userId);
+  const enrollment = await query(
+    `SELECT id FROM enrollments WHERE user_id = $1 AND course_id = $2`,
+    [userId, courseId],
+  );
+  if (!enrollment.rows[0]) throw HttpError.notFound("Enrollment not found");
+
+  const uniqueRequested = [...new Set(lessonIds.filter(Boolean))];
+  if (uniqueRequested.length === 0) {
+    throw HttpError.badRequest("Select at least one lesson or module");
+  }
+
+  const published = await query<{
+    id: string;
+    content_type: string;
+    parent_lesson_id: string | null;
+    sort_order: number;
+  }>(
+    `SELECT id, content_type, parent_lesson_id, sort_order
+       FROM lessons
+      WHERE course_id = $1 AND status = 'published'
+      ORDER BY sort_order, created_at`,
+    [courseId],
+  );
+  if (published.rows.length === 0) throw HttpError.badRequest("Course has no published lessons");
+
+  const byId = new Map(published.rows.map((row) => [row.id, row]));
+  const target = new Set<string>();
+
+  for (const id of uniqueRequested) {
+    // Module roots may be unpublished parents; still expand to published children.
+    const matched = published.rows.filter(
+      (lesson) => lesson.id === id || lesson.parent_lesson_id === id,
+    );
+    if (matched.length === 0) {
+      throw HttpError.badRequest("One or more lessons are not in this course");
+    }
+    for (const lesson of matched) target.add(lesson.id);
+  }
+
+  const includePrior = options?.include_prior !== false;
+  if (includePrior) {
+    let maxSort = -Infinity;
+    for (const id of target) {
+      const row = byId.get(id);
+      if (row) maxSort = Math.max(maxSort, row.sort_order);
+    }
+    for (const lesson of published.rows) {
+      if (lesson.sort_order <= maxSort) target.add(lesson.id);
+    }
+  }
+
+  const completedIds: string[] = [];
+  for (const lesson of published.rows) {
+    if (!target.has(lesson.id)) continue;
+    await markLessonComplete(userId, lesson.id, courseId);
+    await forceCompleteScormRow(userId, lesson.id, courseId, lesson.content_type);
+    completedIds.push(lesson.id);
+  }
+
+  const progress = await updateEnrollmentProgress(userId, courseId);
+  return {
+    course_id: courseId,
+    completed_lesson_ids: completedIds,
+    include_prior: includePrior,
+    progress,
   };
 }
 
