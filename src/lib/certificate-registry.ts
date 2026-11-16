@@ -477,6 +477,103 @@ export async function getRegistryBySerial(
   return result.rows[0] ?? null;
 }
 
+/** Admin: rewrite a finished learner's serial across registry + source table. */
+export async function updateRegistrySerial(input: {
+  registryId: string;
+  serial_number: string;
+}): Promise<CertificateRegistryRow> {
+  await ensureCertificateRegistryTables();
+  const nextSerial = input.serial_number.trim().toUpperCase().replace(/\s+/g, "");
+  if (!/^[A-Z0-9-]{6,40}$/.test(nextSerial)) {
+    throw new Error("Serial must be 6–40 characters (letters, numbers, hyphens)");
+  }
+
+  return withTransaction(async (client) => {
+    const existing = await client.query<CertificateRegistryRow>(
+      `SELECT id, serial_number, course_title, learner_name, learner_email, issued_at, source,
+              course_id, user_id, lms_certificate_id, legacy_course_id, legacy_user_id
+         FROM certificate_registry
+        WHERE id = $1
+        FOR UPDATE`,
+      [input.registryId],
+    );
+    const row = existing.rows[0];
+    if (!row) throw new Error("Registry entry not found");
+
+    const oldSerial = row.serial_number;
+    if (oldSerial.toUpperCase() === nextSerial) return row;
+
+    const clash = await client.query<{ id: string }>(
+      `SELECT id FROM certificate_registry
+        WHERE upper(serial_number) = $1 AND id <> $2
+        LIMIT 1`,
+      [nextSerial, input.registryId],
+    );
+    if (clash.rows[0]) throw new Error(`Serial ${nextSerial} is already in use`);
+
+    if (row.source === "lms" && row.lms_certificate_id) {
+      const certClash = await client.query<{ id: string }>(
+        `SELECT id FROM certificates
+          WHERE upper(serial_number) = $1 AND id <> $2
+          LIMIT 1`,
+        [nextSerial, row.lms_certificate_id],
+      );
+      if (certClash.rows[0]) throw new Error(`Serial ${nextSerial} is already on another LMS certificate`);
+      await client.query(`UPDATE certificates SET serial_number = $1 WHERE id = $2`, [
+        nextSerial,
+        row.lms_certificate_id,
+      ]);
+    }
+
+    if (row.source === "ielts") {
+      const ieltsClash = await client.query<{ id: string }>(
+        `SELECT id FROM ielts_completion_certificates
+          WHERE upper(serial_number) = $1
+          LIMIT 1`,
+        [nextSerial],
+      );
+      if (ieltsClash.rows[0]) throw new Error(`Serial ${nextSerial} is already on another IELTS certificate`);
+      await client.query(
+        `UPDATE ielts_completion_certificates
+            SET serial_number = $1
+          WHERE upper(serial_number) = $2`,
+        [nextSerial, oldSerial.toUpperCase()],
+      );
+    }
+
+    const updated = await client.query<CertificateRegistryRow>(
+      `UPDATE certificate_registry
+          SET serial_number = $1
+        WHERE id = $2
+      RETURNING id, serial_number, course_title, learner_name, learner_email, issued_at, source,
+                course_id, user_id, lms_certificate_id, legacy_course_id, legacy_user_id`,
+      [nextSerial, input.registryId],
+    );
+
+    // Keep course auto-increment ahead of any manually assigned number in the same series.
+    if (row.course_id) {
+      const match = nextSerial.match(/^(.*)-(\d+)$/);
+      if (match) {
+        const prefix = match[1]!;
+        const num = Number(match[2]);
+        const digits = match[2]!.length;
+        if (Number.isFinite(num)) {
+          await client.query(
+            `INSERT INTO certificate_serial_settings (course_id, prefix, digits, next_number, updated_at)
+             VALUES ($1, $2, $3, $4, now())
+             ON CONFLICT (course_id) DO UPDATE SET
+               next_number = GREATEST(certificate_serial_settings.next_number, EXCLUDED.next_number),
+               updated_at = now()`,
+            [row.course_id, prefix, Math.min(12, Math.max(3, digits)), num + 1],
+          );
+        }
+      }
+    }
+
+    return updated.rows[0]!;
+  });
+}
+
 export type AdminCertificateCourseRow = {
   course_id: string;
   course_title: string;

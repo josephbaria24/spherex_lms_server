@@ -34,6 +34,7 @@ import {
   importLegacyCertificateCsv,
   listAdminCertificateCourses,
   searchCertificateRegistry,
+  updateRegistrySerial,
   upsertSerialSettings,
 } from "../../lib/certificate-registry.js";
 import fs from "node:fs";
@@ -60,6 +61,16 @@ const serialSettingsSchema = z.object({
   prefix: z.string().min(2).max(40),
   digits: z.number().int().min(3).max(12),
   next_number: z.number().int().min(1).max(999999999),
+});
+
+const registryIdParam = z.object({ id: z.string().uuid() });
+const registrySerialBody = z.object({
+  serial_number: z
+    .string()
+    .trim()
+    .min(6)
+    .max(40)
+    .regex(/^[A-Za-z0-9-]+$/, "Serial may only contain letters, numbers, and hyphens"),
 });
 
 const photoDir = initCertificatePhotoUploadsDirectory();
@@ -199,6 +210,32 @@ router.put(
       settings,
       sample: `${settings.prefix}-${String(settings.next_number).padStart(settings.digits, "0")}`,
     });
+  }),
+);
+
+// PUT /certificates/admin/registry/:id/serial — edit a finished learner's serial
+router.put(
+  "/admin/registry/:id/serial",
+  requireAuth,
+  requireAdmin,
+  validate(registryIdParam, "params"),
+  validate(registrySerialBody),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = registryIdParam.parse(req.params);
+    const body = registrySerialBody.parse(req.body);
+    try {
+      const entry = await updateRegistrySerial({
+        registryId: id,
+        serial_number: body.serial_number,
+      });
+      res.json({ certificate: entry });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not update serial";
+      if (/not found/i.test(message)) throw HttpError.notFound(message);
+      if (/already/i.test(message)) throw HttpError.conflict(message);
+      if (/must be|may only/i.test(message)) throw HttpError.badRequest(message);
+      throw err;
+    }
   }),
 );
 
