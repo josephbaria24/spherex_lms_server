@@ -111,7 +111,43 @@ export async function upsertSerialSettings(input: {
   return result.rows[0]!;
 }
 
-/** Allocate next serial for a course using its settings, or fall back to SPX-CERT-YEAR. */
+/** Known course title → serial acronym (legacy PSI-ELA style). */
+const SERIAL_ACRONYM_ALIASES: Array<{ test: RegExp; code: string }> = [
+  {
+    test: /mandatory\s+eight[-\s]?hour\s+safety(\s+and\s+health)?(\s+training)?/i,
+    code: "MEHSAHT",
+  },
+  { test: /\bmesh\b/i, code: "MEHSAHT" },
+  { test: /lock\s*-?\s*out\s*tag\s*-?\s*out|\bloto\b/i, code: "LOTO" },
+];
+
+/** Build PSI-ELA-* serial prefix from a course title (e.g. MESH → PSI-ELA-MEHSAHT). */
+export function suggestSerialPrefixFromTitle(title: string): string {
+  for (const alias of SERIAL_ACRONYM_ALIASES) {
+    if (alias.test.test(title)) return `PSI-ELA-${alias.code}`;
+  }
+  const tokens = title
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s-]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  // Eight-Hour → EH; include small words so “…Safety and Health…” → …SAH…
+  let acronym = "";
+  for (const token of tokens) {
+    if (token.includes("-")) {
+      acronym += token
+        .split("-")
+        .filter(Boolean)
+        .map((p) => p[0]!)
+        .join("");
+    } else {
+      acronym += token[0]!;
+    }
+  }
+  return `PSI-ELA-${acronym.slice(0, 16) || "COURSE"}`;
+}
+
+/** Allocate next serial for a course using its settings, or PSI-ELA-{course acronym}. */
 export async function allocateCourseSerial(courseId: string): Promise<string> {
   await ensureCertificateRegistryTables();
   return withTransaction(async (client) => {
@@ -134,8 +170,13 @@ export async function allocateCourseSerial(courseId: string): Promise<string> {
       return serial;
     }
 
-    const year = new Date().getFullYear();
-    const prefix = `SPX-CERT-${year}-`;
+    const course = await client.query<{ title: string }>(
+      `SELECT title FROM courses WHERE id = $1`,
+      [courseId],
+    );
+    const prefixBase = suggestSerialPrefixFromTitle(course.rows[0]?.title ?? "Course");
+    const prefix = `${prefixBase}-`;
+    const digits = 6;
     const last = await client.query<{ serial_number: string }>(
       `SELECT serial_number FROM certificates
         WHERE serial_number LIKE $1
@@ -149,7 +190,20 @@ export async function allocateCourseSerial(courseId: string): Promise<string> {
       const n = Number(lastSerial.slice(prefix.length));
       if (Number.isFinite(n)) seq = n + 1;
     }
-    return `${prefix}${String(seq).padStart(5, "0")}`;
+    // Also respect legacy registry serials with the same prefix.
+    const legacy = await client.query<{ serial_number: string }>(
+      `SELECT serial_number FROM certificate_registry
+        WHERE serial_number LIKE $1
+        ORDER BY serial_number DESC
+        LIMIT 1`,
+      [`${prefix}%`],
+    );
+    const legacySerial = legacy.rows[0]?.serial_number;
+    if (legacySerial) {
+      const n = Number(legacySerial.slice(prefix.length));
+      if (Number.isFinite(n) && n + 1 > seq) seq = n + 1;
+    }
+    return `${prefix}${String(seq).padStart(digits, "0")}`;
   });
 }
 
@@ -433,6 +487,7 @@ export type AdminCertificateCourseRow = {
   serial_digits: number | null;
   serial_next: number | null;
   sample_serial: string | null;
+  default_serial_prefix: string;
 };
 
 export async function listAdminCertificateCourses(): Promise<{
@@ -482,10 +537,11 @@ export async function listAdminCertificateCourses(): Promise<{
     const ready = certificateTemplateIsReady(template as never);
     const digits = row.serial_digits ?? 6;
     const next = row.serial_next ?? 1;
+    const inferredPrefix = suggestSerialPrefixFromTitle(row.course_title);
     const sample =
       row.serial_prefix != null
         ? `${row.serial_prefix}-${String(next).padStart(digits, "0")}`
-        : null;
+        : `${inferredPrefix}-${String(1).padStart(digits, "0")}`;
     return {
       course_id: row.course_id,
       course_title: row.course_title,
@@ -496,6 +552,7 @@ export async function listAdminCertificateCourses(): Promise<{
       serial_digits: row.serial_digits,
       serial_next: row.serial_next,
       sample_serial: sample,
+      default_serial_prefix: inferredPrefix,
     };
   });
 

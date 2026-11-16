@@ -388,8 +388,12 @@ router.get(
 
     const pdf = await buildCertificatePdfBuffer(data, template);
     const filename = `${data.serial_number ?? id}.pdf`;
+    const inline = String(req.query.view ?? "") === "1" || String(req.query.inline ?? "") === "1";
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader(
+      "Content-Disposition",
+      `${inline ? "inline" : "attachment"}; filename="${filename}"`,
+    );
     res.send(pdf);
   }),
 );
