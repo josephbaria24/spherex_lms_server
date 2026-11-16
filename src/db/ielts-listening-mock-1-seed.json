@@ -1,0 +1,729 @@
+{
+  "source": "Academic Listening Practice Test 1 (question paper + answer key)",
+  "quiz": {
+    "group_subject": "Listening",
+    "title": "IELTS Listening — Mock Test 1",
+    "description": "Full Academic Listening mock (Sections 1–4). Audio stays at the top — type or select your answers as you listen.",
+    "exam_type": "IELTS",
+    "category": "Listening - Mock Test",
+    "passing_score": 60,
+    "time_limit_seconds": 2400,
+    "audio_url": "/ielts-academic/academic-mock-1-listening.mp3",
+    "questions": [
+      {
+        "prompt": "SECTION 1 · Questions 1–5\nComplete the form below.\nWrite NO MORE THAN ONE WORD OR A NUMBER for each answer.\n\nPAN ASIAN AIRWAYS — LOST PROPERTY REPORT FORM\nExample — First Name: Kirsty\nSurname: Allen\n\n(1) Address: __________ Windham Road, Richmond",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "forty eight"
+          },
+          {
+            "id": "a2",
+            "text": "forty-eight"
+          }
+        ],
+        "correct_option_id": "48"
+      },
+      {
+        "prompt": "SECTION 1 · Questions 1–5\nComplete the form below.\nWrite NO MORE THAN ONE WORD OR A NUMBER for each answer.\n\nPAN ASIAN AIRWAYS — LOST PROPERTY REPORT FORM\nExample — First Name: Kirsty\nSurname: Allen\n\n(2) Postcode: __________\nNote: answer with no space",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "R16GH7"
+          },
+          {
+            "id": "a2",
+            "text": "r16 gh7"
+          },
+          {
+            "id": "a3",
+            "text": "r16gh7"
+          }
+        ],
+        "correct_option_id": "R16 GH7"
+      },
+      {
+        "prompt": "SECTION 1 · Questions 1–5\nComplete the form below.\nWrite NO MORE THAN ONE WORD OR A NUMBER for each answer.\n\nPAN ASIAN AIRWAYS — LOST PROPERTY REPORT FORM\nExample — First Name: Kirsty\nSurname: Allen\nHome tel: 020 8927 7651\n\n(3) Mobile tel: __________\nNote: answer with no space",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "07754897432"
+          },
+          {
+            "id": "a2",
+            "text": "07754 897432"
+          }
+        ],
+        "correct_option_id": "07754 897 432"
+      },
+      {
+        "prompt": "SECTION 1 · Questions 1–5\nComplete the form below.\nWrite NO MORE THAN ONE WORD OR A NUMBER for each answer.\n\nPAN ASIAN AIRWAYS — LOST PROPERTY REPORT FORM\nExample — First Name: Kirsty\nSurname: Allen\n\n(4) Flight number: __________\nNote: capital letters and no space",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "PA365"
+          },
+          {
+            "id": "a2",
+            "text": "pa 365"
+          },
+          {
+            "id": "a3",
+            "text": "pa365"
+          }
+        ],
+        "correct_option_id": "PA 365"
+      },
+      {
+        "prompt": "SECTION 1 · Questions 1–5\nComplete the form below.\nWrite NO MORE THAN ONE WORD OR A NUMBER for each answer.\n\nPAN ASIAN AIRWAYS — LOST PROPERTY REPORT FORM\nExample — First Name: Kirsty\nSurname: Allen\nFrom: New York · To: London Heathrow\n\n(5) Seat number: __________",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "e6"
+          }
+        ],
+        "correct_option_id": "E6"
+      },
+      {
+        "prompt": "Questions 6–8\nWhat items did Kirsty’s bag contain?\nSelect THREE items.",
+        "question_type": "multi_select",
+        "options": [
+          {
+            "id": "a",
+            "text": "17 pounds"
+          },
+          {
+            "id": "b",
+            "text": "pens"
+          },
+          {
+            "id": "c",
+            "text": "her passport"
+          },
+          {
+            "id": "d",
+            "text": "a book"
+          },
+          {
+            "id": "e",
+            "text": "200 dollars"
+          },
+          {
+            "id": "f",
+            "text": "her house keys"
+          }
+        ],
+        "correct_option_id": "b,d,e"
+      },
+      {
+        "prompt": "Question 9\nWhat has Kirsty done regarding the loss of her credit card?",
+        "question_type": "multiple_choice",
+        "options": [
+          {
+            "id": "a",
+            "text": "Informed the police but not the credit card company."
+          },
+          {
+            "id": "b",
+            "text": "Informed the credit card company but not the police."
+          },
+          {
+            "id": "c",
+            "text": "Informed both the police and the credit card company."
+          },
+          {
+            "id": "d",
+            "text": "Informed neither the police nor the credit card company."
+          }
+        ],
+        "correct_option_id": "c"
+      },
+      {
+        "prompt": "Question 10\nWhat must Kirsty do after the call regarding her lost handbag?",
+        "question_type": "multiple_choice",
+        "options": [
+          {
+            "id": "a",
+            "text": "Call back after 1½ hours."
+          },
+          {
+            "id": "b",
+            "text": "Just wait for a call back."
+          },
+          {
+            "id": "c",
+            "text": "Call back after 1½ hours if she has heard nothing."
+          },
+          {
+            "id": "d",
+            "text": "Call back the next day if she has heard nothing."
+          }
+        ],
+        "correct_option_id": "c"
+      },
+      {
+        "prompt": "SECTION 2 · Questions 11–14 — Map labels\nLabel the locations on the campus map (from the recording).\nWrite NO MORE THAN THREE WORDS.\n\n(11) Location near the Car Park: __________",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "Students Union"
+          },
+          {
+            "id": "a2",
+            "text": "Students' Union"
+          },
+          {
+            "id": "a3",
+            "text": "Student Union"
+          }
+        ],
+        "correct_option_id": "Student’s Union"
+      },
+      {
+        "prompt": "SECTION 2 · Map labels\n(12) Location near Hall of Residence / Refectory: __________",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "Uni Library"
+          },
+          {
+            "id": "a2",
+            "text": "the University Library"
+          },
+          {
+            "id": "a3",
+            "text": "library"
+          }
+        ],
+        "correct_option_id": "University Library"
+      },
+      {
+        "prompt": "SECTION 2 · Map labels\n(13) Location near Hall of Residence: __________",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "Halls of Residence"
+          },
+          {
+            "id": "a2",
+            "text": "hall of residence"
+          }
+        ],
+        "correct_option_id": "Hall of Residence"
+      },
+      {
+        "prompt": "SECTION 2 · Map labels\n(14) Location near Main Lecture Hall: __________",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "Sport Hall"
+          },
+          {
+            "id": "a2",
+            "text": "the Sports Hall"
+          },
+          {
+            "id": "a3",
+            "text": "sports hall"
+          }
+        ],
+        "correct_option_id": "Sports Hall"
+      },
+      {
+        "prompt": "SECTION 2 · Questions 15–20 — Student facilities notes\nWrite NO MORE THAN THREE WORDS OR A NUMBER.\n\nLibrary — Tours every (15) __________ for 2 weeks.",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "two hours"
+          },
+          {
+            "id": "a2",
+            "text": "2hrs"
+          },
+          {
+            "id": "a3",
+            "text": "2 hrs"
+          }
+        ],
+        "correct_option_id": "2 hours"
+      },
+      {
+        "prompt": "SECTION 2 notes\nLibrary open 9am–9pm (later during (16) __________)",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "final exam"
+          },
+          {
+            "id": "a2",
+            "text": "exams"
+          },
+          {
+            "id": "a3",
+            "text": "Final Exams"
+          }
+        ],
+        "correct_option_id": "Final exams"
+      },
+      {
+        "prompt": "SECTION 2 notes\nRefectory dinner (17) __________ – 8.30pm",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "6 pm"
+          },
+          {
+            "id": "a2",
+            "text": "6.00pm"
+          },
+          {
+            "id": "a3",
+            "text": "18:00"
+          },
+          {
+            "id": "a4",
+            "text": "6 o'clock"
+          }
+        ],
+        "correct_option_id": "6pm"
+      },
+      {
+        "prompt": "SECTION 2 notes\nTypes of food — favourites, healthy, ethnic, (18) __________, vegan",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "vegetarian"
+          }
+        ],
+        "correct_option_id": "Vegetarian"
+      },
+      {
+        "prompt": "SECTION 2 notes\nAthletic Union — lets me use facilities, play for teams, (19) __________ me all year",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "Fully insures"
+          },
+          {
+            "id": "a2",
+            "text": "insures"
+          },
+          {
+            "id": "a3",
+            "text": "fully insure"
+          },
+          {
+            "id": "a4",
+            "text": "Fully insured"
+          },
+          {
+            "id": "a5",
+            "text": "insures"
+          }
+        ],
+        "correct_option_id": "(Fully) insures"
+      },
+      {
+        "prompt": "SECTION 2 notes\nDiscount Card costs (20) £__________",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "£50"
+          },
+          {
+            "id": "a2",
+            "text": "50 pounds"
+          }
+        ],
+        "correct_option_id": "50"
+      },
+      {
+        "prompt": "SECTION 3 · Questions 21–25 — Complete the table\nWrite NO MORE THAN THREE WORDS.\n\nJane — Day of Arrival: (21) __________",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "Tues"
+          }
+        ],
+        "correct_option_id": "Tuesday"
+      },
+      {
+        "prompt": "SECTION 3 table\nJane — Subjects Studying: (22) __________ (with history, music)",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "economics"
+          }
+        ],
+        "correct_option_id": "Economics"
+      },
+      {
+        "prompt": "SECTION 3 table\nJane — Monday’s 2pm lecture: (23) __________",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "free"
+          },
+          {
+            "id": "a2",
+            "text": "nothing"
+          },
+          {
+            "id": "a3",
+            "text": "Free"
+          },
+          {
+            "id": "a4",
+            "text": "Nothing"
+          },
+          {
+            "id": "a5",
+            "text": "free / nothing"
+          }
+        ],
+        "correct_option_id": "free/nothing"
+      },
+      {
+        "prompt": "SECTION 3 table\nJane — Wednesday afternoon sport: (24) __________",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "squash"
+          }
+        ],
+        "correct_option_id": "Squash"
+      },
+      {
+        "prompt": "SECTION 3 table\nJane — Location of Sport: (25) __________",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "main sports hall"
+          },
+          {
+            "id": "a2",
+            "text": "Main Sports Hall"
+          },
+          {
+            "id": "a3",
+            "text": "sports hall"
+          }
+        ],
+        "correct_option_id": "Main sports hall"
+      },
+      {
+        "prompt": "SECTION 3 · Questions 26–29\nWrite NO MORE THAN THREE WORDS OR A NUMBER.\n\n26. Students can choose from how many essay titles for their first assignment?",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "10"
+          },
+          {
+            "id": "a2",
+            "text": "about 10"
+          },
+          {
+            "id": "a3",
+            "text": "approx 10"
+          },
+          {
+            "id": "a4",
+            "text": "approximately 10"
+          }
+        ],
+        "correct_option_id": "About 10"
+      },
+      {
+        "prompt": "SECTION 3\n27. Where did John travel during the summer?",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "Asia and Africa"
+          },
+          {
+            "id": "a2",
+            "text": "Africa & Asia"
+          }
+        ],
+        "correct_option_id": "Africa and Asia"
+      },
+      {
+        "prompt": "SECTION 3\n28. What is the word limit for the essays?",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "4000"
+          },
+          {
+            "id": "a2",
+            "text": "4,000 words"
+          },
+          {
+            "id": "a3",
+            "text": "4,000"
+          }
+        ],
+        "correct_option_id": "4000 words"
+      },
+      {
+        "prompt": "SECTION 3\n29. When must the first essay be handed in by?",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "30 October"
+          },
+          {
+            "id": "a2",
+            "text": "October 30"
+          },
+          {
+            "id": "a3",
+            "text": "30th of October"
+          },
+          {
+            "id": "a4",
+            "text": "Oct 30"
+          }
+        ],
+        "correct_option_id": "30th October"
+      },
+      {
+        "prompt": "Question 30\nWhere will John and Jane meet up later that day?",
+        "question_type": "multiple_choice",
+        "options": [
+          {
+            "id": "a",
+            "text": "the economics course office"
+          },
+          {
+            "id": "b",
+            "text": "the economics common room"
+          },
+          {
+            "id": "c",
+            "text": "the campus cafeteria"
+          }
+        ],
+        "correct_option_id": "b"
+      },
+      {
+        "prompt": "SECTION 4 · Questions 31–34\n31. Japan relies on oil tankers because...",
+        "question_type": "multiple_choice",
+        "options": [
+          {
+            "id": "a",
+            "text": "the country consists of islands."
+          },
+          {
+            "id": "b",
+            "text": "the country has no pipeline network."
+          },
+          {
+            "id": "c",
+            "text": "the country has no natural oil resources."
+          }
+        ],
+        "correct_option_id": "c"
+      },
+      {
+        "prompt": "SECTION 4\n32. Professor Wilson says that oil tankers are...",
+        "question_type": "multiple_choice",
+        "options": [
+          {
+            "id": "a",
+            "text": "very safe."
+          },
+          {
+            "id": "b",
+            "text": "quite safe."
+          },
+          {
+            "id": "c",
+            "text": "quite unsafe."
+          }
+        ],
+        "correct_option_id": "b"
+      },
+      {
+        "prompt": "SECTION 4\n33. According to Professor Wilson, the main cause of oil slicks is...",
+        "question_type": "multiple_choice",
+        "options": [
+          {
+            "id": "a",
+            "text": "accidents while loading and unloading oil."
+          },
+          {
+            "id": "b",
+            "text": "collisions."
+          },
+          {
+            "id": "c",
+            "text": "deliberate releases of oil."
+          }
+        ],
+        "correct_option_id": "b"
+      },
+      {
+        "prompt": "SECTION 4\n34. According to Professor Wilson, slicks are rarely burned off nowadays because...",
+        "question_type": "multiple_choice",
+        "options": [
+          {
+            "id": "a",
+            "text": "the oil is refined."
+          },
+          {
+            "id": "b",
+            "text": "it usually doesn’t work."
+          },
+          {
+            "id": "c",
+            "text": "it creates too much air pollution."
+          }
+        ],
+        "correct_option_id": "b"
+      },
+      {
+        "prompt": "SECTION 4 · Questions 35–39 — Oil clean-up techniques\nWrite NO MORE THAN THREE WORDS.\n\nContainment Boom — Only good when there are (35) __________",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "calm seas"
+          },
+          {
+            "id": "a2",
+            "text": "very calm sea"
+          },
+          {
+            "id": "a3",
+            "text": "Very calm sea"
+          }
+        ],
+        "correct_option_id": "Very calm seas"
+      },
+      {
+        "prompt": "SECTION 4 techniques\nChemical Detergents — Good for treating (36) __________",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "larger slick"
+          },
+          {
+            "id": "a2",
+            "text": "large slicks"
+          }
+        ],
+        "correct_option_id": "Larger slicks"
+      },
+      {
+        "prompt": "SECTION 4 techniques\nThe Sponge — The sponge mats turn into (37) __________",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "toxic wastes"
+          }
+        ],
+        "correct_option_id": "Toxic waste"
+      },
+      {
+        "prompt": "SECTION 4 techniques\nBacteria — Totally (38) __________",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "eco friendly"
+          },
+          {
+            "id": "a2",
+            "text": "eco-friendly"
+          },
+          {
+            "id": "a3",
+            "text": "environmentally friendly"
+          }
+        ],
+        "correct_option_id": "Eco-friendly"
+      },
+      {
+        "prompt": "SECTION 4 techniques\nBacteria — Drawbacks: (39) __________",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "none"
+          },
+          {
+            "id": "a2",
+            "text": "None"
+          },
+          {
+            "id": "a3",
+            "text": "no drawbacks"
+          },
+          {
+            "id": "a4",
+            "text": "No drawbacks"
+          },
+          {
+            "id": "a5",
+            "text": "no discernable drawbacks"
+          },
+          {
+            "id": "a6",
+            "text": "No discernable drawbacks"
+          },
+          {
+            "id": "a7",
+            "text": "no discernible drawbacks"
+          }
+        ],
+        "correct_option_id": "No (discernable) drawbacks/none"
+      },
+      {
+        "prompt": "Question 40\nOptional essay question — faculty notice boards include reading lists, essay questions, and (40) __________\nWrite NO MORE THAN THREE WORDS.",
+        "question_type": "fill_blank",
+        "options": [
+          {
+            "id": "a1",
+            "text": "deadlines for submission"
+          },
+          {
+            "id": "a2",
+            "text": "submission deadline"
+          },
+          {
+            "id": "a3",
+            "text": "the deadline for submission"
+          }
+        ],
+        "correct_option_id": "Deadline for submission"
+      }
+    ]
+  }
+}
