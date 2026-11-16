@@ -11,7 +11,7 @@
     "audio_url": "/ielts-academic/academic-mock-1-listening.mp3",
     "questions": [
       {
-        "prompt": "SECTION 1 · Questions 1–5\nComplete the form below.\nWrite NO MORE THAN ONE WORD OR A NUMBER for each answer.\n\nPAN ASIAN AIRWAYS — LOST PROPERTY REPORT FORM\nExample — First Name: Kirsty\nSurname: Allen\n\n(1) Address: __________ Windham Road, Richmond",
+        "prompt": "Write **NO MORE THAN ONE WORD OR A NUMBER** for each answer.\n\nExample:\nFirst Name: **Kirsty** (answer)\nSurname: Allen\n\n[[blank]] Windham Road Richmond",
         "question_type": "fill_blank",
         "options": [
           {
@@ -26,7 +26,7 @@
         "correct_option_id": "48"
       },
       {
-        "prompt": "SECTION 1 · Questions 1–5\nComplete the form below.\nWrite NO MORE THAN ONE WORD OR A NUMBER for each answer.\n\nPAN ASIAN AIRWAYS — LOST PROPERTY REPORT FORM\nExample — First Name: Kirsty\nSurname: Allen\n\n(2) Postcode: __________\nNote: answer with no space",
+        "prompt": "Write **NO MORE THAN ONE WORD OR A NUMBER** for each answer.\n\nPostcode\n\nNote: answer with no space.\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -45,7 +45,7 @@
         "correct_option_id": "R16 GH7"
       },
       {
-        "prompt": "SECTION 1 · Questions 1–5\nComplete the form below.\nWrite NO MORE THAN ONE WORD OR A NUMBER for each answer.\n\nPAN ASIAN AIRWAYS — LOST PROPERTY REPORT FORM\nExample — First Name: Kirsty\nSurname: Allen\nHome tel: 020 8927 7651\n\n(3) Mobile tel: __________\nNote: answer with no space",
+        "prompt": "Write **NO MORE THAN ONE WORD OR A NUMBER** for each answer.\n\nHome tel: 020 8927 7651\nMobile tel\n\nNote: answer with no space.\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -60,7 +60,7 @@
         "correct_option_id": "07754 897 432"
       },
       {
-        "prompt": "SECTION 1 · Questions 1–5\nComplete the form below.\nWrite NO MORE THAN ONE WORD OR A NUMBER for each answer.\n\nPAN ASIAN AIRWAYS — LOST PROPERTY REPORT FORM\nExample — First Name: Kirsty\nSurname: Allen\n\n(4) Flight number: __________\nNote: capital letters and no space",
+        "prompt": "Write **NO MORE THAN ONE WORD OR A NUMBER** for each answer.\n\nFlight number\n\nNote: Answer capital letter and no space.\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -79,7 +79,7 @@
         "correct_option_id": "PA 365"
       },
       {
-        "prompt": "SECTION 1 · Questions 1–5\nComplete the form below.\nWrite NO MORE THAN ONE WORD OR A NUMBER for each answer.\n\nPAN ASIAN AIRWAYS — LOST PROPERTY REPORT FORM\nExample — First Name: Kirsty\nSurname: Allen\nFrom: New York · To: London Heathrow\n\n(5) Seat number: __________",
+        "prompt": "Write **NO MORE THAN ONE WORD OR A NUMBER** for each answer.\n\nSeat number\nFrom: New York\nTo: London Heathrow\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -90,7 +90,7 @@
         "correct_option_id": "E6"
       },
       {
-        "prompt": "Questions 6–8\nWhat items did Kirsty’s bag contain?\nSelect THREE items.",
+        "prompt": "Questions 6–8\nWhat items did Kirsty’s bag contain?\n**Select THREE items.**",
         "question_type": "multi_select",
         "options": [
           {
@@ -167,7 +167,7 @@
         "correct_option_id": "c"
       },
       {
-        "prompt": "SECTION 2 · Questions 11–14 — Map labels\nLabel the locations on the campus map (from the recording).\nWrite NO MORE THAN THREE WORDS.\n\n(11) Location near the Car Park: __________",
+        "prompt": "SECTION 2 · Questions 11–14\nLabel the locations on the map below.\nWrite **NO MORE THAN THREE WORDS** for each answer.\n\nNear the Car Park\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -186,7 +186,7 @@
         "correct_option_id": "Student’s Union"
       },
       {
-        "prompt": "SECTION 2 · Map labels\n(12) Location near Hall of Residence / Refectory: __________",
+        "prompt": "SECTION 2 · Map labels\nWrite **NO MORE THAN THREE WORDS** for each answer.\n\nNear Hall of Residence / Refectory\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -205,7 +205,7 @@
         "correct_option_id": "University Library"
       },
       {
-        "prompt": "SECTION 2 · Map labels\n(13) Location near Hall of Residence: __________",
+        "prompt": "SECTION 2 · Map labels\nWrite **NO MORE THAN THREE WORDS** for each answer.\n\nNear Hall of Residence\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -220,7 +220,7 @@
         "correct_option_id": "Hall of Residence"
       },
       {
-        "prompt": "SECTION 2 · Map labels\n(14) Location near Main Lecture Hall: __________",
+        "prompt": "SECTION 2 · Map labels\nWrite **NO MORE THAN THREE WORDS** for each answer.\n\nNear Main Lecture Hall\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -239,7 +239,7 @@
         "correct_option_id": "Sports Hall"
       },
       {
-        "prompt": "SECTION 2 · Questions 15–20 — Student facilities notes\nWrite NO MORE THAN THREE WORDS OR A NUMBER.\n\nLibrary — Tours every (15) __________ for 2 weeks.",
+        "prompt": "SECTION 2 · Questions 15–20\nNotes on Student Facilities\nWrite **NO MORE THAN THREE WORDS OR A NUMBER** for each answer.\n\nLibrary — Tours every [[blank]] for 2 weeks.",
         "question_type": "fill_blank",
         "options": [
           {
@@ -258,7 +258,7 @@
         "correct_option_id": "2 hours"
       },
       {
-        "prompt": "SECTION 2 notes\nLibrary open 9am–9pm (later during (16) __________)",
+        "prompt": "Write **NO MORE THAN THREE WORDS OR A NUMBER** for each answer.\n\nLibrary open 9am – 9pm (later during [[blank]])",
         "question_type": "fill_blank",
         "options": [
           {
@@ -277,7 +277,7 @@
         "correct_option_id": "Final exams"
       },
       {
-        "prompt": "SECTION 2 notes\nRefectory dinner (17) __________ – 8.30pm",
+        "prompt": "Write **NO MORE THAN THREE WORDS OR A NUMBER** for each answer.\n\nRefectory dinner [[blank]] – 8.30pm",
         "question_type": "fill_blank",
         "options": [
           {
@@ -300,7 +300,7 @@
         "correct_option_id": "6pm"
       },
       {
-        "prompt": "SECTION 2 notes\nTypes of food — favourites, healthy, ethnic, (18) __________, vegan",
+        "prompt": "Write **NO MORE THAN THREE WORDS OR A NUMBER** for each answer.\n\nTypes of food — favourites, healthy, ethnic, [[blank]], vegan",
         "question_type": "fill_blank",
         "options": [
           {
@@ -311,7 +311,7 @@
         "correct_option_id": "Vegetarian"
       },
       {
-        "prompt": "SECTION 2 notes\nAthletic Union — lets me use facilities, play for teams, (19) __________ me all year",
+        "prompt": "Write **NO MORE THAN THREE WORDS OR A NUMBER** for each answer.\n\nAthletic Union — lets me use facilities, play for teams, [[blank]] me all year",
         "question_type": "fill_blank",
         "options": [
           {
@@ -329,16 +329,12 @@
           {
             "id": "a4",
             "text": "Fully insured"
-          },
-          {
-            "id": "a5",
-            "text": "insures"
           }
         ],
         "correct_option_id": "(Fully) insures"
       },
       {
-        "prompt": "SECTION 2 notes\nDiscount Card costs (20) £__________",
+        "prompt": "Write **NO MORE THAN THREE WORDS OR A NUMBER** for each answer.\n\nDiscount Card costs £[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -353,7 +349,7 @@
         "correct_option_id": "50"
       },
       {
-        "prompt": "SECTION 3 · Questions 21–25 — Complete the table\nWrite NO MORE THAN THREE WORDS.\n\nJane — Day of Arrival: (21) __________",
+        "prompt": "SECTION 3 · Questions 21–25\nComplete the table below.\nWrite **NO MORE THAN THREE WORDS** for each answer.\n\nJane — Day of Arrival\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -364,7 +360,7 @@
         "correct_option_id": "Tuesday"
       },
       {
-        "prompt": "SECTION 3 table\nJane — Subjects Studying: (22) __________ (with history, music)",
+        "prompt": "Write **NO MORE THAN THREE WORDS** for each answer.\n\nJane — Subjects Studying (with history, music)\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -375,7 +371,7 @@
         "correct_option_id": "Economics"
       },
       {
-        "prompt": "SECTION 3 table\nJane — Monday’s 2pm lecture: (23) __________",
+        "prompt": "Write **NO MORE THAN THREE WORDS** for each answer.\n\nJane — Monday’s 2pm lecture\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -402,7 +398,7 @@
         "correct_option_id": "free/nothing"
       },
       {
-        "prompt": "SECTION 3 table\nJane — Wednesday afternoon sport: (24) __________",
+        "prompt": "Write **NO MORE THAN THREE WORDS** for each answer.\n\nJane — Wednesday afternoon sport\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -413,7 +409,7 @@
         "correct_option_id": "Squash"
       },
       {
-        "prompt": "SECTION 3 table\nJane — Location of Sport: (25) __________",
+        "prompt": "Write **NO MORE THAN THREE WORDS** for each answer.\n\nJane — Location of Sport\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -432,7 +428,7 @@
         "correct_option_id": "Main sports hall"
       },
       {
-        "prompt": "SECTION 3 · Questions 26–29\nWrite NO MORE THAN THREE WORDS OR A NUMBER.\n\n26. Students can choose from how many essay titles for their first assignment?",
+        "prompt": "SECTION 3 · Questions 26–29\nWrite **NO MORE THAN THREE WORDS OR A NUMBER** for each answer.\n\nStudents can choose from how many essay titles for their first assignment?\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -455,7 +451,7 @@
         "correct_option_id": "About 10"
       },
       {
-        "prompt": "SECTION 3\n27. Where did John travel during the summer?",
+        "prompt": "Write **NO MORE THAN THREE WORDS OR A NUMBER** for each answer.\n\nWhere did John travel during the summer?\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -470,7 +466,7 @@
         "correct_option_id": "Africa and Asia"
       },
       {
-        "prompt": "SECTION 3\n28. What is the word limit for the essays?",
+        "prompt": "Write **NO MORE THAN THREE WORDS OR A NUMBER** for each answer.\n\nWhat is the word limit for the essays?\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -489,7 +485,7 @@
         "correct_option_id": "4000 words"
       },
       {
-        "prompt": "SECTION 3\n29. When must the first essay be handed in by?",
+        "prompt": "Write **NO MORE THAN THREE WORDS OR A NUMBER** for each answer.\n\nWhen must the first essay be handed in by?\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -550,7 +546,7 @@
         "correct_option_id": "c"
       },
       {
-        "prompt": "SECTION 4\n32. Professor Wilson says that oil tankers are...",
+        "prompt": "32. Professor Wilson says that oil tankers are...",
         "question_type": "multiple_choice",
         "options": [
           {
@@ -569,7 +565,7 @@
         "correct_option_id": "b"
       },
       {
-        "prompt": "SECTION 4\n33. According to Professor Wilson, the main cause of oil slicks is...",
+        "prompt": "33. According to Professor Wilson, the main cause of oil slicks is...",
         "question_type": "multiple_choice",
         "options": [
           {
@@ -588,7 +584,7 @@
         "correct_option_id": "b"
       },
       {
-        "prompt": "SECTION 4\n34. According to Professor Wilson, slicks are rarely burned off nowadays because...",
+        "prompt": "34. According to Professor Wilson, slicks are rarely burned off nowadays because...",
         "question_type": "multiple_choice",
         "options": [
           {
@@ -607,7 +603,7 @@
         "correct_option_id": "b"
       },
       {
-        "prompt": "SECTION 4 · Questions 35–39 — Oil clean-up techniques\nWrite NO MORE THAN THREE WORDS.\n\nContainment Boom — Only good when there are (35) __________",
+        "prompt": "SECTION 4 · Questions 35–39\nOil exploration clean-up techniques\nWrite **NO MORE THAN THREE WORDS** for each answer.\n\nContainment Boom — Only good when there are\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -626,7 +622,7 @@
         "correct_option_id": "Very calm seas"
       },
       {
-        "prompt": "SECTION 4 techniques\nChemical Detergents — Good for treating (36) __________",
+        "prompt": "Write **NO MORE THAN THREE WORDS** for each answer.\n\nChemical Detergents — Good for treating\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -641,7 +637,7 @@
         "correct_option_id": "Larger slicks"
       },
       {
-        "prompt": "SECTION 4 techniques\nThe Sponge — The sponge mats turn into (37) __________",
+        "prompt": "Write **NO MORE THAN THREE WORDS** for each answer.\n\nThe Sponge — The sponge mats turn into\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -652,7 +648,7 @@
         "correct_option_id": "Toxic waste"
       },
       {
-        "prompt": "SECTION 4 techniques\nBacteria — Totally (38) __________",
+        "prompt": "Write **NO MORE THAN THREE WORDS** for each answer.\n\nBacteria — Totally\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -671,7 +667,7 @@
         "correct_option_id": "Eco-friendly"
       },
       {
-        "prompt": "SECTION 4 techniques\nBacteria — Drawbacks: (39) __________",
+        "prompt": "Write **NO MORE THAN THREE WORDS** for each answer.\n\nBacteria — Drawbacks\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {
@@ -706,7 +702,7 @@
         "correct_option_id": "No (discernable) drawbacks/none"
       },
       {
-        "prompt": "Question 40\nOptional essay question — faculty notice boards include reading lists, essay questions, and (40) __________\nWrite NO MORE THAN THREE WORDS.",
+        "prompt": "Question 40\nWrite **NO MORE THAN THREE WORDS** for each answer.\n\nFaculty notice boards include reading lists, essay questions, and\n\n[[blank]]",
         "question_type": "fill_blank",
         "options": [
           {

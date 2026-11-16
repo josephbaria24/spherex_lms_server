@@ -1,5 +1,6 @@
 /**
  * Build IELTS Listening Mock Test 1 seed from Academic Test 1 paper + answer key.
+ * Prompt convention: text before [[blank]] = instructions; text after = suffix after the input.
  * Usage: node scripts/build-listening-mock-1.mjs
  */
 import { writeFileSync } from "node:fs";
@@ -42,47 +43,79 @@ function ms(prompt, options, correctIds) {
   };
 }
 
-const formIntro = `SECTION 1 · Questions 1–5
-Complete the form below.
-Write NO MORE THAN ONE WORD OR A NUMBER for each answer.
+const oneWord = "Write **NO MORE THAN ONE WORD OR A NUMBER** for each answer.";
+const threeWords = "Write **NO MORE THAN THREE WORDS** for each answer.";
+const threeWordsOrNumber = "Write **NO MORE THAN THREE WORDS OR A NUMBER** for each answer.";
 
-PAN ASIAN AIRWAYS — LOST PROPERTY REPORT FORM
-Example — First Name: Kirsty
+const formExample = `Example:
+First Name: **Kirsty** (answer)
 Surname: Allen`;
 
 const questions = [
   fb(
-    `${formIntro}\n\n(1) Address: __________ Windham Road, Richmond`,
+    `${oneWord}
+
+${formExample}
+
+[[blank]] Windham Road Richmond`,
     "48",
     ["forty eight", "forty-eight"],
   ),
   fb(
-    `${formIntro}\n\n(2) Postcode: __________\nNote: answer with no space`,
+    `${oneWord}
+
+Postcode
+
+Note: answer with no space.
+
+[[blank]]`,
     "R16 GH7",
     ["R16GH7", "r16 gh7", "r16gh7"],
   ),
   fb(
-    `${formIntro}\nHome tel: 020 8927 7651\n\n(3) Mobile tel: __________\nNote: answer with no space`,
+    `${oneWord}
+
+Home tel: 020 8927 7651
+Mobile tel
+
+Note: answer with no space.
+
+[[blank]]`,
     "07754 897 432",
     ["07754897432", "07754 897432"],
   ),
   fb(
-    `${formIntro}\n\n(4) Flight number: __________\nNote: capital letters and no space`,
+    `${oneWord}
+
+Flight number
+
+Note: Answer capital letter and no space.
+
+[[blank]]`,
     "PA 365",
     ["PA365", "pa 365", "pa365"],
   ),
   fb(
-    `${formIntro}\nFrom: New York · To: London Heathrow\n\n(5) Seat number: __________`,
+    `${oneWord}
+
+Seat number
+From: New York
+To: London Heathrow
+
+[[blank]]`,
     "E6",
     ["e6"],
   ),
   ms(
-    `Questions 6–8\nWhat items did Kirsty’s bag contain?\nSelect THREE items.`,
+    `Questions 6–8
+What items did Kirsty’s bag contain?
+**Select THREE items.**`,
     ["17 pounds", "pens", "her passport", "a book", "200 dollars", "her house keys"],
     "b,d,e",
   ),
   mc(
-    `Question 9\nWhat has Kirsty done regarding the loss of her credit card?`,
+    `Question 9
+What has Kirsty done regarding the loss of her credit card?`,
     [
       "Informed the police but not the credit card company.",
       "Informed the credit card company but not the police.",
@@ -92,7 +125,8 @@ const questions = [
     "c",
   ),
   mc(
-    `Question 10\nWhat must Kirsty do after the call regarding her lost handbag?`,
+    `Question 10
+What must Kirsty do after the call regarding her lost handbag?`,
     [
       "Call back after 1½ hours.",
       "Just wait for a call back.",
@@ -102,115 +136,177 @@ const questions = [
     "c",
   ),
   fb(
-    `SECTION 2 · Questions 11–14 — Map labels
-Label the locations on the campus map (from the recording).
-Write NO MORE THAN THREE WORDS.
+    `SECTION 2 · Questions 11–14
+Label the locations on the map below.
+${threeWords}
 
-(11) Location near the Car Park: __________`,
+Near the Car Park
+
+[[blank]]`,
     "Student’s Union",
     ["Students Union", "Students' Union", "Student Union"],
   ),
   fb(
-    `SECTION 2 · Map labels\n(12) Location near Hall of Residence / Refectory: __________`,
+    `SECTION 2 · Map labels
+${threeWords}
+
+Near Hall of Residence / Refectory
+
+[[blank]]`,
     "University Library",
     ["Uni Library", "the University Library", "library"],
   ),
   fb(
-    `SECTION 2 · Map labels\n(13) Location near Hall of Residence: __________`,
+    `SECTION 2 · Map labels
+${threeWords}
+
+Near Hall of Residence
+
+[[blank]]`,
     "Hall of Residence",
     ["Halls of Residence", "hall of residence"],
   ),
   fb(
-    `SECTION 2 · Map labels\n(14) Location near Main Lecture Hall: __________`,
+    `SECTION 2 · Map labels
+${threeWords}
+
+Near Main Lecture Hall
+
+[[blank]]`,
     "Sports Hall",
     ["Sport Hall", "the Sports Hall", "sports hall"],
   ),
   fb(
-    `SECTION 2 · Questions 15–20 — Student facilities notes
-Write NO MORE THAN THREE WORDS OR A NUMBER.
+    `SECTION 2 · Questions 15–20
+Notes on Student Facilities
+${threeWordsOrNumber}
 
-Library — Tours every (15) __________ for 2 weeks.`,
+Library — Tours every [[blank]] for 2 weeks.`,
     "2 hours",
     ["two hours", "2hrs", "2 hrs"],
   ),
   fb(
-    `SECTION 2 notes\nLibrary open 9am–9pm (later during (16) __________)`,
+    `${threeWordsOrNumber}
+
+Library open 9am – 9pm (later during [[blank]])`,
     "Final exams",
     ["final exam", "exams", "Final Exams"],
   ),
   fb(
-    `SECTION 2 notes\nRefectory dinner (17) __________ – 8.30pm`,
+    `${threeWordsOrNumber}
+
+Refectory dinner [[blank]] – 8.30pm`,
     "6pm",
     ["6 pm", "6.00pm", "18:00", "6 o'clock"],
   ),
   fb(
-    `SECTION 2 notes\nTypes of food — favourites, healthy, ethnic, (18) __________, vegan`,
+    `${threeWordsOrNumber}
+
+Types of food — favourites, healthy, ethnic, [[blank]], vegan`,
     "Vegetarian",
     ["vegetarian"],
   ),
   fb(
-    `SECTION 2 notes\nAthletic Union — lets me use facilities, play for teams, (19) __________ me all year`,
+    `${threeWordsOrNumber}
+
+Athletic Union — lets me use facilities, play for teams, [[blank]] me all year`,
     "(Fully) insures",
-    ["Fully insures", "insures", "fully insure", "Fully insured", "insures"],
+    ["Fully insures", "insures", "fully insure", "Fully insured"],
   ),
   fb(
-    `SECTION 2 notes\nDiscount Card costs (20) £__________`,
+    `${threeWordsOrNumber}
+
+Discount Card costs £[[blank]]`,
     "50",
     ["£50", "50 pounds"],
   ),
   fb(
-    `SECTION 3 · Questions 21–25 — Complete the table
-Write NO MORE THAN THREE WORDS.
+    `SECTION 3 · Questions 21–25
+Complete the table below.
+${threeWords}
 
-Jane — Day of Arrival: (21) __________`,
+Jane — Day of Arrival
+
+[[blank]]`,
     "Tuesday",
     ["Tues"],
   ),
   fb(
-    `SECTION 3 table\nJane — Subjects Studying: (22) __________ (with history, music)`,
+    `${threeWords}
+
+Jane — Subjects Studying (with history, music)
+
+[[blank]]`,
     "Economics",
     ["economics"],
   ),
   fb(
-    `SECTION 3 table\nJane — Monday’s 2pm lecture: (23) __________`,
+    `${threeWords}
+
+Jane — Monday’s 2pm lecture
+
+[[blank]]`,
     "free/nothing",
     ["free", "nothing", "Free", "Nothing", "free / nothing"],
   ),
   fb(
-    `SECTION 3 table\nJane — Wednesday afternoon sport: (24) __________`,
+    `${threeWords}
+
+Jane — Wednesday afternoon sport
+
+[[blank]]`,
     "Squash",
     ["squash"],
   ),
   fb(
-    `SECTION 3 table\nJane — Location of Sport: (25) __________`,
+    `${threeWords}
+
+Jane — Location of Sport
+
+[[blank]]`,
     "Main sports hall",
     ["main sports hall", "Main Sports Hall", "sports hall"],
   ),
   fb(
     `SECTION 3 · Questions 26–29
-Write NO MORE THAN THREE WORDS OR A NUMBER.
+${threeWordsOrNumber}
 
-26. Students can choose from how many essay titles for their first assignment?`,
+Students can choose from how many essay titles for their first assignment?
+
+[[blank]]`,
     "About 10",
     ["10", "about 10", "approx 10", "approximately 10"],
   ),
   fb(
-    `SECTION 3\n27. Where did John travel during the summer?`,
+    `${threeWordsOrNumber}
+
+Where did John travel during the summer?
+
+[[blank]]`,
     "Africa and Asia",
     ["Asia and Africa", "Africa & Asia"],
   ),
   fb(
-    `SECTION 3\n28. What is the word limit for the essays?`,
+    `${threeWordsOrNumber}
+
+What is the word limit for the essays?
+
+[[blank]]`,
     "4000 words",
     ["4000", "4,000 words", "4,000"],
   ),
   fb(
-    `SECTION 3\n29. When must the first essay be handed in by?`,
+    `${threeWordsOrNumber}
+
+When must the first essay be handed in by?
+
+[[blank]]`,
     "30th October",
     ["30 October", "October 30", "30th of October", "Oct 30"],
   ),
   mc(
-    `Question 30\nWhere will John and Jane meet up later that day?`,
+    `Question 30
+Where will John and Jane meet up later that day?`,
     [
       "the economics course office",
       "the economics common room",
@@ -229,12 +325,12 @@ Write NO MORE THAN THREE WORDS OR A NUMBER.
     "c",
   ),
   mc(
-    `SECTION 4\n32. Professor Wilson says that oil tankers are...`,
+    `32. Professor Wilson says that oil tankers are...`,
     ["very safe.", "quite safe.", "quite unsafe."],
     "b",
   ),
   mc(
-    `SECTION 4\n33. According to Professor Wilson, the main cause of oil slicks is...`,
+    `33. According to Professor Wilson, the main cause of oil slicks is...`,
     [
       "accidents while loading and unloading oil.",
       "collisions.",
@@ -243,7 +339,7 @@ Write NO MORE THAN THREE WORDS OR A NUMBER.
     "b",
   ),
   mc(
-    `SECTION 4\n34. According to Professor Wilson, slicks are rarely burned off nowadays because...`,
+    `34. According to Professor Wilson, slicks are rarely burned off nowadays because...`,
     [
       "the oil is refined.",
       "it usually doesn’t work.",
@@ -252,30 +348,49 @@ Write NO MORE THAN THREE WORDS OR A NUMBER.
     "b",
   ),
   fb(
-    `SECTION 4 · Questions 35–39 — Oil clean-up techniques
-Write NO MORE THAN THREE WORDS.
+    `SECTION 4 · Questions 35–39
+Oil exploration clean-up techniques
+${threeWords}
 
-Containment Boom — Only good when there are (35) __________`,
+Containment Boom — Only good when there are
+
+[[blank]]`,
     "Very calm seas",
     ["calm seas", "very calm sea", "Very calm sea"],
   ),
   fb(
-    `SECTION 4 techniques\nChemical Detergents — Good for treating (36) __________`,
+    `${threeWords}
+
+Chemical Detergents — Good for treating
+
+[[blank]]`,
     "Larger slicks",
     ["larger slick", "large slicks"],
   ),
   fb(
-    `SECTION 4 techniques\nThe Sponge — The sponge mats turn into (37) __________`,
+    `${threeWords}
+
+The Sponge — The sponge mats turn into
+
+[[blank]]`,
     "Toxic waste",
     ["toxic wastes"],
   ),
   fb(
-    `SECTION 4 techniques\nBacteria — Totally (38) __________`,
+    `${threeWords}
+
+Bacteria — Totally
+
+[[blank]]`,
     "Eco-friendly",
     ["eco friendly", "eco-friendly", "environmentally friendly"],
   ),
   fb(
-    `SECTION 4 techniques\nBacteria — Drawbacks: (39) __________`,
+    `${threeWords}
+
+Bacteria — Drawbacks
+
+[[blank]]`,
     "No (discernable) drawbacks/none",
     [
       "none",
@@ -289,15 +404,15 @@ Containment Boom — Only good when there are (35) __________`,
   ),
   fb(
     `Question 40
-Optional essay question — faculty notice boards include reading lists, essay questions, and (40) __________
-Write NO MORE THAN THREE WORDS.`,
+${threeWords}
+
+Faculty notice boards include reading lists, essay questions, and
+
+[[blank]]`,
     "Deadline for submission",
     ["deadlines for submission", "submission deadline", "the deadline for submission"],
   ),
 ];
-
-// multi_select counts as 1 question in our DB but represents 6-8 (3 marks in real IELTS).
-// Keep paper numbering notes in prompts; total interactive items = questions.length
 
 const seed = {
   source: "Academic Listening Practice Test 1 (question paper + answer key)",
