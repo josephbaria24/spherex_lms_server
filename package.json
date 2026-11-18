@@ -21,6 +21,8 @@
     "db:seed:reviewer-groups": "tsx src/db/seed-reviewer-groups.ts",
     "db:seed:ielts-quizzes": "tsx src/db/seed-ielts-quizzes.ts",
     "db:seed:ielts-reading-mock-1": "tsx src/db/seed-ielts-reading-mock-1.ts",
+    "db:seed:ielts-reading-mock-2": "tsx src/db/seed-ielts-reading-mock-2.ts",
+    "db:seed:ielts-reading-mock-3": "tsx src/db/seed-ielts-reading-mock-3.ts",
     "db:seed:ielts-listening-mock-1": "tsx src/db/seed-ielts-listening-mock-1.ts",
     "db:seed:ielts-productive": "tsx src/db/seed-ielts-productive.ts",
     "db:seed:scorm": "tsx scripts/seed-scorm-course.ts"

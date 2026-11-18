@@ -27,7 +27,7 @@ import {
   saveCertificateTemplateSchema,
   setCertificateTemplateImage,
 } from "../../lib/certificate-template.js";
-import { extensionForMime, ORG_LOGO_MIME_TYPES } from "../../lib/org-uploads.js";
+import { extensionForMime } from "../../lib/org-uploads.js";
 import {
   ensureCertificateRegistryTables,
   getSerialSettings,
@@ -316,8 +316,10 @@ const templateImageUpload = multer({
   // High-res print artwork (e.g. A4/Letter @ 300 DPI) can exceed 8 MB — store bytes as-is.
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (!ORG_LOGO_MIME_TYPES.has(file.mimetype) || file.mimetype === "image/svg+xml" || file.mimetype === "image/gif") {
-      cb(new Error("Upload a PNG, JPG, or WebP certificate background"));
+    // PDFKit embeds JPEG/PNG bytes as-is for print. WebP/GIF/SVG cannot be
+    // placed in the PDF without re-encoding, which would lose print resolution.
+    if (file.mimetype !== "image/jpeg" && file.mimetype !== "image/png") {
+      cb(new Error("Upload a PNG or JPG certificate background (print/300 DPI recommended)"));
       return;
     }
     cb(null, true);

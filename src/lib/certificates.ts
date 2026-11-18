@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import PDFDocument from "pdfkit";
 import { query } from "../config/db.js";
@@ -12,6 +12,142 @@ import {
   type CertificateField,
   type CertificateTemplateRecord,
 } from "./certificate-template.js";
+
+/** Target print density for high-res template canvases (pixels → PDF points). */
+const CERTIFICATE_PRINT_DPI = 300;
+const PDF_POINTS_PER_INCH = 72;
+
+function isJpegBuffer(data: Buffer): boolean {
+  return data.length >= 2 && data[0] === 0xff && data[1] === 0xd8;
+}
+
+function isPngBuffer(data: Buffer): boolean {
+  return (
+    data.length >= 8 &&
+    data[0] === 0x89 &&
+    data[1] === 0x50 &&
+    data[2] === 0x4e &&
+    data[3] === 0x47
+  );
+}
+
+function isWebpBuffer(data: Buffer): boolean {
+  return (
+    data.length >= 12 &&
+    data.toString("ascii", 0, 4) === "RIFF" &&
+    data.toString("ascii", 8, 12) === "WEBP"
+  );
+}
+
+/** Read PNG/JPEG pixel size from file headers (no decode / no re-encode). */
+function readRasterImageSize(data: Buffer): { width: number; height: number } | null {
+  if (isPngBuffer(data) && data.length >= 24) {
+    return { width: data.readUInt32BE(16), height: data.readUInt32BE(20) };
+  }
+  if (!isJpegBuffer(data)) return null;
+  let offset = 2;
+  while (offset + 9 < data.length) {
+    if (data[offset] !== 0xff) {
+      offset += 1;
+      continue;
+    }
+    const marker = data[offset + 1];
+    if (marker === 0xd8 || marker === 0xd9) {
+      offset += 2;
+      continue;
+    }
+    const size = data.readUInt16BE(offset + 2);
+    // SOF0 / SOF1 / SOF2
+    if (marker === 0xc0 || marker === 0xc1 || marker === 0xc2) {
+      return {
+        height: data.readUInt16BE(offset + 5),
+        width: data.readUInt16BE(offset + 7),
+      };
+    }
+    offset += 2 + size;
+  }
+  return null;
+}
+
+function paperSizePoints(pageSize: string): { width: number; height: number } {
+  switch (pageSize) {
+    case "a4-portrait":
+      return { width: 595.28, height: 841.89 };
+    case "letter-landscape":
+      return { width: 792, height: 612 };
+    case "letter-portrait":
+      return { width: 612, height: 792 };
+    case "a4-landscape":
+    default:
+      return { width: 841.89, height: 595.28 };
+  }
+}
+
+/**
+ * Map the template canvas onto a print-ready PDF page.
+ * High-res pixel canvases (typical after a 300 DPI upload) are sized so each
+ * pixel prints at CERTIFICATE_PRINT_DPI — PDFKit still embeds the original
+ * raster bytes with no downsample/re-encode.
+ */
+function resolvePrintPage(
+  template: CertificateTemplateRecord,
+): { width: number; height: number; scaleX: number; scaleY: number } {
+  const paper = paperSizePoints(template.page_size);
+  const canvasW = Math.max(template.canvas_width, 1);
+  const canvasH = Math.max(template.canvas_height, 1);
+  const looksLikePixels = canvasW >= paper.width * 1.75 || canvasH >= paper.height * 1.75;
+
+  if (looksLikePixels) {
+    const width = (canvasW / CERTIFICATE_PRINT_DPI) * PDF_POINTS_PER_INCH;
+    const height = (canvasH / CERTIFICATE_PRINT_DPI) * PDF_POINTS_PER_INCH;
+    return { width, height, scaleX: width / canvasW, scaleY: height / canvasH };
+  }
+
+  return {
+    width: paper.width,
+    height: paper.height,
+    scaleX: paper.width / canvasW,
+    scaleY: paper.height / canvasH,
+  };
+}
+
+/**
+ * Embed a certificate raster at full source resolution.
+ * PDFKit only supports JPEG/PNG; WebP (and other formats) must not be silently skipped.
+ */
+function drawFullPageImage(
+  doc: InstanceType<typeof PDFDocument>,
+  absolutePath: string,
+  pageWidth: number,
+  pageHeight: number,
+): void {
+  const data = readFileSync(absolutePath);
+  if (isWebpBuffer(data)) {
+    throw new Error(
+      "Certificate background is WebP. Re-upload as PNG or JPEG so the PDF can keep print resolution.",
+    );
+  }
+  if (!isJpegBuffer(data) && !isPngBuffer(data)) {
+    throw new Error("Certificate background must be a PNG or JPEG image.");
+  }
+  // Pass the original bytes through — JPEG stays DCTDecode; PNG stays lossless Flate.
+  // Placement size is in PDF points only; pixel dimensions inside the XObject are unchanged.
+  const size = readRasterImageSize(data);
+  if (size && size.width > 0 && size.height > 0) {
+    const imageAspect = size.width / size.height;
+    const pageAspect = pageWidth / pageHeight;
+    // Prefer cover so artwork fills the page without lowering pixel density via letterboxing.
+    if (Math.abs(imageAspect - pageAspect) > 0.02) {
+      doc.image(data, 0, 0, {
+        cover: [pageWidth, pageHeight],
+        align: "center",
+        valign: "center",
+      });
+      return;
+    }
+  }
+  doc.image(data, 0, 0, { width: pageWidth, height: pageHeight });
+}
 
 export function initCertificatePhotoUploadsDirectory(): string {
   const dir = join(getUploadsRoot(), "certificate-photos");
@@ -225,19 +361,6 @@ export async function loadCertificatePdfData(
   };
 }
 
-function pageSpec(pageSize: string): { size: "A4" | "LETTER"; layout: "landscape" | "portrait" } {
-  switch (pageSize) {
-    case "a4-portrait":
-      return { size: "A4", layout: "portrait" };
-    case "letter-landscape":
-      return { size: "LETTER", layout: "landscape" };
-    case "letter-portrait":
-      return { size: "LETTER", layout: "portrait" };
-    default:
-      return { size: "A4", layout: "landscape" };
-  }
-}
-
 function pdfFontName(field: CertificateField): string {
   const times = field.fontFamily === "Times";
   if (field.fontStyle === "italic" && field.fontWeight === "bold") {
@@ -276,8 +399,13 @@ function renderTemplatePdf(
   template: CertificateTemplateRecord,
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const spec = pageSpec(template.page_size);
-    const doc = new PDFDocument({ size: spec.size, layout: spec.layout, margin: 0 });
+    const page = resolvePrintPage(template);
+    const doc = new PDFDocument({
+      size: [page.width, page.height],
+      margin: 0,
+      compress: true,
+      autoFirstPage: true,
+    });
     const chunks: Buffer[] = [];
     doc.on("data", (c) => chunks.push(c));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
@@ -285,17 +413,16 @@ function renderTemplatePdf(
 
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
-    const scaleX = pageWidth / Math.max(template.canvas_width, 1);
-    const scaleY = pageHeight / Math.max(template.canvas_height, 1);
+    const { scaleX, scaleY } = page;
 
     if (template.image_path) {
       const abs = certificateTemplateAbsolutePath(template.image_path);
       if (abs) {
         try {
-          // Place full-page; PDFKit embeds the original image stream (no re-encode/downsample).
-          doc.image(abs, 0, 0, { width: pageWidth, height: pageHeight });
-        } catch {
-          // Missing artwork still prints the text fields.
+          drawFullPageImage(doc, abs, pageWidth, pageHeight);
+        } catch (err) {
+          // Missing/unsupported artwork still prints the text fields.
+          console.error("[certificates] background embed failed:", err);
         }
       }
     }
@@ -310,11 +437,15 @@ function renderTemplatePdf(
           const abs = certificatePhotoAbsolutePath(data.photo_path);
           if (abs) {
             try {
-              doc.image(abs, x, y, {
-                fit: [boxW, boxH],
-                align: "center",
-                valign: "center",
-              });
+              const photo = readFileSync(abs);
+              if (isJpegBuffer(photo) || isPngBuffer(photo)) {
+                // Embed original photo bytes; fit inside the box (no re-encode).
+                doc.image(photo, x, y, {
+                  fit: [boxW, boxH],
+                  align: "center",
+                  valign: "center",
+                });
+              }
             } catch {
               // skip missing photo
             }
@@ -325,6 +456,7 @@ function renderTemplatePdf(
 
       const text = fillCertificateText(field.value, data);
       if (!text.trim()) continue;
+      // fontSize on the template is in canvas units; scale to PDF points for crisp vectors.
       doc.font(pdfFontName(field)).fontSize(field.fontSize * scaleY).fillColor(field.color);
       const textWidth = doc.widthOfString(text);
       let drawX = x;
